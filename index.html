@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>HomeAI</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:system-ui,sans-serif;background:#0f172a;color:#f1f5f9;min-height:100vh}
+input,select,button{font-family:inherit}
+#auth-screen{display:flex;align-items:center;justify-content:center;min-height:100vh}
+.auth-card{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:40px;width:100%;max-width:380px;text-align:center}
+.auth-logo{font-size:40px;margin-bottom:12px}
+.auth-title{font-size:24px;font-weight:700;margin-bottom:4px}
+.auth-sub{font-size:13px;color:#94a3b8;margin-bottom:32px}
+.auth-err{font-size:12px;color:#f87171;margin-top:12px;display:none}
+#app{display:none}
+.navbar{background:#0f172a;border-bottom:1px solid #1e293b;padding:0 16px;display:flex;align-items:center;gap:4px;flex-wrap:wrap;position:sticky;top:0;z-index:100}
+.nav-logo{font-size:15px;font-weight:700;margin-right:8px;padding:12px 0;white-space:nowrap}
+.nav-btn{padding:8px 12px;background:transparent;border:none;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:12px;white-space:nowrap}
+.nav-btn.active{background:#1d4ed8;color:#fff;font-weight:600}
+.nav-btn:hover:not(.active){background:#1e293b;color:#f1f5f9}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.nav-avatar{width:26px;height:26px;border-radius:50%;border:1px solid #334155;display:none}
+.nav-user{font-size:11px;color:#64748b}
+.logout-btn{padding:4px 10px;background:transparent;border:1px solid #334155;border-radius:6px;color:#64748b;cursor:pointer;font-size:11px}
+.main{padding:16px;max-width:1100px;margin:0 auto}
+.page{display:none}.page.active{display:block}
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:16px}
+.metric-card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:14px;border-left:3px solid var(--accent)}
+.metric-label{font-size:11px;color:#94a3b8;margin-bottom:5px}
+.metric-val{font-size:24px;font-weight:700;color:var(--accent);margin-bottom:3px}
+.metric-sub{font-size:11px;color:#64748b}
+.metric-bar{margin-top:8px;height:3px;background:#0f172a;border-radius:99px}
+.metric-bar-fill{height:3px;border-radius:99px;background:var(--accent)}
+.sec{font-size:11px;font-weight:600;color:#64748b;letter-spacing:.08em;text-transform:uppercase;margin:16px 0 8px}
+.card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:14px;margin-bottom:10px}
+.alert{padding:9px 14px;border-radius:8px;font-size:13px;margin-bottom:6px}
+.alert.danger{background:#7f1d1d33;border:1px solid #f8717144;color:#fca5a5}
+.alert.warning{background:#78350f33;border:1px solid #fbbf2444;color:#fde68a}
+.alert.info{background:#1e3a5f33;border:1px solid #60a5fa44;color:#93c5fd}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:6px 8px;border-bottom:1px solid #1e293b;color:#64748b;font-weight:500;white-space:nowrap}
+td{padding:7px 8px;border-bottom:1px solid #1e293b;vertical-align:middle}
+tr:hover td{background:#1e293b44}
+.badge{display:inline-block;padding:2px 7px;border-radius:99px;font-size:11px;font-weight:500;white-space:nowrap}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid #334155;border-top-color:#60a5fa;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading{color:#64748b;font-size:13px;padding:20px;text-align:center}
+.empty{color:#64748b;font-size:13px;padding:20px;text-align:center}
+.prog-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.prog-label{font-size:12px;color:#94a3b8;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prog-bar{flex:1;height:4px;background:#0f172a;border-radius:99px}
+.prog-fill{height:4px;border-radius:99px}
+.prog-val{font-size:11px;color:#64748b;min-width:28px;text-align:right}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tab-nav{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.tab-btn{padding:5px 12px;background:transparent;border:1px solid #334155;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:12px}
+.tab-btn.active{background:#1e293b;border-color:#60a5fa;color:#60a5fa;font-weight:500}
+.sub-row{background:#0f172a33;border-left:2px solid #334155;margin:2px 0 2px 8px;padding:4px 8px;border-radius:0 4px 4px 0;font-size:11px;color:#94a3b8;display:flex;justify-content:space-between;align-items:center}
+@media(max-width:640px){.two-col{grid-template-columns:1fr}.metric-grid{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">🏠</div>
+    <div class="auth-title">HomeAI</div>
+    <div class="auth-sub">Sistema de gestión del hogar</div>
+    <div id="g_id_onload"
+      data-client_id="715701428085-ouqraaqrh6s4qb9ho7mtec3h57u08fhn.apps.googleusercontent.com"
+      data-callback="handleGoogleLogin"
+      data-auto_prompt="false">
+    </div>
+    <div class="g_id_signin"
+      data-type="standard" data-size="large" data-theme="filled_blue"
+      data-text="signin_with" data-shape="rectangular"
+      data-logo_alignment="left" data-width="300">
+    </div>
+    <div class="auth-err" id="auth-err">Email no autorizado</div>
+  </div>
+</div>
+
+<div id="app">
+  <nav class="navbar">
+    <span class="nav-logo">🏠 HomeAI</span>
+    <button class="nav-btn active" onclick="showPage('dashboard',this)">Dashboard</button>
+    <button class="nav-btn" onclick="showPage('remodelacion',this)">🔨 Remo</button>
+    <button class="nav-btn" onclick="showPage('familiar',this)">🏡 Familiar</button>
+    <button class="nav-btn" onclick="showPage('finanzas',this)">💰 Finanzas</button>
+    <button class="nav-btn" onclick="showPage('compras',this)">🛍️ Compras</button>
+    <button class="nav-btn" onclick="showPage('nutricion',this)">🥗 Nutrición</button>
+    <div class="nav-right">
+      <img class="nav-avatar" id="nav-avatar" src="" alt=""/>
+      <span class="nav-user" id="nav-user"></span>
+      <button class="logout-btn" onclick="logout()">Salir</button>
+    </div>
+  </nav>
+  <div class="main">
+
+    <div class="page active" id="page-dashboard">
+      <div style="margin-bottom:14px">
+        <div style="font-size:20px;font-weight:700">Dashboard General</div>
+        <div style="font-size:12px;color:#64748b" id="dash-date"></div>
+      </div>
+      <div class="metric-grid" id="dash-metrics"><div class="loading"><span class="spinner"></span>Cargando...</div></div>
+      <div id="dash-alerts"></div>
+      <div class="two-col" style="margin-bottom:10px">
+        <div class="card" id="dash-estados"><div class="loading"><span class="spinner"></span></div></div>
+        <div class="card" id="dash-areas"><div class="loading"><span class="spinner"></span></div></div>
+      </div>
+      <div class="card" id="dash-prioridad"><div class="loading"><span class="spinner"></span></div></div>
+    </div>
+
+    <div class="page" id="page-remodelacion">
+      <div style="font-size:20px;font-weight:700;margin-bottom:14px">🔨 Remodelación</div>
+      <div class="metric-grid" id="remo-metrics"></div>
+      <div class="card">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+          <select onchange="filterRemo()" id="f-area" style="background:#0f172a;border:1px solid #334155;border-radius:6px;color:#f1f5f9;padding:4px 8px;font-size:12px"><option value="">Todas las áreas</option></select>
+          <select onchange="filterRemo()" id="f-estado" style="background:#0f172a;border:1px solid #334155;border-radius:6px;color:#f1f5f9;padding:4px 8px;font-size:12px">
+            <option value="">Todos los estados</option>
+            <option>Pendiente</option><option>Planeando</option><option>En Proceso</option><option>En Prueba</option><option>Completo</option><option>Bloqueado</option>
+          </select>
+          <select onchange="filterRemo()" id="f-pri" style="background:#0f172a;border:1px solid #334155;border-radius:6px;color:#f1f5f9;padding:4px 8px;font-size:12px">
+            <option value="">Todas las prioridades</option><option>Alta</option><option>Media</option><option>Baja</option>
+          </select>
+        </div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>Área</th><th>Proyecto</th><th>Etapa</th><th>Estado</th><th>Prioridad</th><th>Presupuesto</th><th>Pagado</th><th>Contratista</th></tr></thead>
+          <tbody id="remo-tbody"><tr><td colspan="8" class="loading"><span class="spinner"></span>Cargando...</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-familiar">
+      <div style="font-size:20px;font-weight:700;margin-bottom:14px">🏡 Vida Familiar</div>
+      <div class="metric-grid" id="fam-metrics"></div>
+      <div class="tab-nav">
+        <button class="tab-btn active" onclick="showFamTab('tareas',this)">Tareas</button>
+        <button class="tab-btn" onclick="showFamTab('salud',this)">Salud</button>
+        <button class="tab-btn" onclick="showFamTab('mascotas',this)">Mascotas</button>
+        <button class="tab-btn" onclick="showFamTab('tramites',this)">Trámites</button>
+      </div>
+      <div id="fam-tareas">
+        <div class="card">
+          <div class="tbl-wrap">
+            <table><thead><tr><th>Categoría</th><th>Tarea</th><th>Prioridad</th><th>Estado</th><th>Asignado</th><th>Fecha límite</th></tr></thead>
+            <tbody id="fam-tareas-tbody"><tr><td colspan="6" class="loading"><span class="spinner"></span>Cargando...</td></tr></tbody></table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="sec">Subtareas pendientes</div>
+          <div id="fam-subtareas-list"><div class="loading"><span class="spinner"></span></div></div>
+        </div>
+      </div>
+      <div id="fam-salud" style="display:none">
+        <div class="card"><div class="tbl-wrap">
+          <table><thead><tr><th>Miembro</th><th>Tipo</th><th>Descripción</th><th>Doctor</th><th>Fecha</th><th>Próxima cita</th></tr></thead>
+          <tbody id="fam-salud-tbody"><tr><td colspan="6" class="empty">Sin registros</td></tr></tbody></table>
+        </div></div>
+      </div>
+      <div id="fam-mascotas" style="display:none">
+        <div class="card"><div class="tbl-wrap">
+          <table><thead><tr><th>Mascota</th><th>Tipo</th><th>Descripción</th><th>Veterinario</th><th>Fecha</th><th>Próxima vacuna</th></tr></thead>
+          <tbody id="fam-mascotas-tbody"><tr><td colspan="6" class="empty">Sin registros</td></tr></tbody></table>
+        </div></div>
+      </div>
+      <div id="fam-tramites" style="display:none">
+        <div class="card"><div class="tbl-wrap">
+          <table><thead><tr><th>Tipo</th><th>Descripción</th><th>Responsable</th><th>Estado</th><th>Fecha límite</th><th>Institución</th></tr></thead>
+          <tbody id="fam-tramites-tbody"><tr><td colspan="6" class="empty">Sin registros</td></tr></tbody></table>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-finanzas">
+      <div style="font-size:20px;font-weight:700;margin-bottom:14px">💰 Finanzas</div>
+      <div class="metric-grid" id="fin-metrics"></div>
+      <div class="two-col">
+        <div class="card"><div class="sec">Tarjetas de crédito</div><div id="fin-tcs"><div class="loading"><span class="spinner"></span></div></div></div>
+        <div class="card"><div class="sec">MSI activos</div><div id="fin-msi"><div class="loading"><span class="spinner"></span></div></div></div>
+      </div>
+      <div class="card"><div class="sec">Gastos recientes</div>
+        <div class="tbl-wrap">
+          <table><thead><tr><th>Fecha</th><th>Concepto</th><th>Categoría</th><th>Monto</th><th>Forma pago</th><th>Comprobante</th></tr></thead>
+          <tbody id="fin-tbody"><tr><td colspan="6" class="loading"><span class="spinner"></span>Cargando...</td></tr></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-compras">
+      <div style="font-size:20px;font-weight:700;margin-bottom:14px">🛍️ Compras</div>
+      <div class="metric-grid" id="comp-metrics"></div>
+      <div class="card"><div class="tbl-wrap">
+        <table><thead><tr><th>Artículo</th><th>Prioridad</th><th>Etapa</th><th>Estado</th><th>Precio Est.</th><th>Precio Real</th><th>Tienda</th></tr></thead>
+        <tbody id="comp-tbody"><tr><td colspan="7" class="loading"><span class="spinner"></span>Cargando...</td></tr></tbody></table>
+      </div></div>
+    </div>
+
+    <div class="page" id="page-nutricion">
+      <div style="font-size:20px;font-weight:700;margin-bottom:14px">🥗 Nutrición</div>
+      <div class="metric-grid" id="nut-metrics"></div>
+      <div class="tab-nav">
+        <button class="tab-btn active" onclick="showNutTab('menu',this)">Menú semanal</button>
+        <button class="tab-btn" onclick="showNutTab('despensa',this)">Despensa</button>
+        <button class="tab-btn" onclick="showNutTab('compras',this)">Lista compras</button>
+        <button class="tab-btn" onclick="showNutTab('historial',this)">Historial</button>
+      </div>
+      <div id="nut-menu">
+        <div class="card"><div class="tbl-wrap">
+          <table><thead><tr><th>Día</th><th>Tiempo</th><th>Platillo</th><th>Cal</th><th>Prot(g)</th><th>Carb(g)</th><th>Receta</th></tr></thead>
+          <tbody id="nut-menu-tbody"><tr><td colspan="7" class="empty">El agente generará el menú este domingo a las 8 PM</td></tr></tbody></table>
+        </div></div>
+      </div>
+      <div id="nut-despensa" style="display:none">
+        <div class="card"><div class="tbl-wrap">
+          <table><thead><tr><th>Ingrediente</th><th>Categoría</th><th>Cantidad</th><th>Unidad</th><th>Caducidad</th><th>Disponible</th></tr></thead>
+          <tbody id="nut-despensa-tbody"><tr><td colspan="6" class="empty">Sin inventario de despensa</td></tr></tbody></table>
+        </div></div>
+      </div>
+      <div id="nut-compras" style="display:none">
+        <div class="card"><div class="tbl-wrap">
+          <table><thead><tr><th>Ingrediente</th><th>Categoría</th><th>Cantidad</th><th>Comprado</th></tr></thead>
+          <tbody id="nut-compras-tbody"><tr><td colspan="4" class="empty">Sin lista de compras activa</td></tr></tbody></table>
+        </div></div>
+      </div>
+      <div id="nut-historial" style="display:none">
+        <div class="card"><div class="tbl-wrap">
+          <table><thead><tr><th>Fecha</th><th>Tiempo</th><th>Platillo</th><th>Cal</th><th>Prot(g)</th><th>Carb(g)</th></tr></thead>
+          <tbody id="nut-hist-tbody"><tr><td colspan="6" class="empty">Sin historial nutricional</td></tr></tbody></table>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
