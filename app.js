@@ -244,20 +244,95 @@ function renderFamiliar(){
 
 function renderFinanzas(){
   var gastos=DATA.fin.gastos,tcs=DATA.fin.tcs,msi=DATA.fin.msi;
+  var cuenta=DATA.fin.cuenta||[], alertas=DATA.fin.alertas||[];
   var now=new Date();
-  var gM=gastos.filter(function(g){try{var f=new Date(g["Fecha"]);return f.getMonth()===now.getMonth()&&f.getFullYear()===now.getFullYear();}catch(e){return false;}});
-  var totG=gM.reduce(function(s,g){return s+(+g["Monto MXN"]||0);},0);
-  var totTC=tcs.reduce(function(s,t){return s+(+t["Saldo actual MXN"]||0);},0);
+
+  // Saldo cuenta corriente
+  var saldoCuenta=0;
+  if(cuenta.length>0){
+    var ultimo=cuenta[cuenta.length-1];
+    saldoCuenta=+(ultimo["Saldo Resultante"]||0);
+  }
+
+  // Total deuda TCs
+  var totalTC=tcs.reduce(function(s,t){return s+(+t["Saldo actual"]||0);},0);
+
+  // Saldo conciliado
+  var saldoConciliado=saldoCuenta-totalTC;
+  var semaforo=saldoConciliado>totalTC*2?"🟢 Saludable":saldoConciliado>0?"🟡 Atención":"🔴 Crítico";
+  var semaforoColor=saldoConciliado>totalTC*2?"#4ade80":saldoConciliado>0?"#fbbf24":"#f87171";
+
+  var gMes=gastos.filter(function(g){
+    try{var f=new Date(g["Fecha"]);return f.getMonth()===now.getMonth()&&f.getFullYear()===now.getFullYear();}catch(e){return false;}
+  });
+  var totG=gMes.reduce(function(s,g){return s+(+g["Monto"]||0);},0);
   var msiAct=msi.filter(function(m){return m["Estado"]!=="Cerrado";});
   var totMSI=msiAct.reduce(function(s,m){return s+(+m["Saldo Pendiente MXN"]||0);},0);
-  document.getElementById("fin-metrics").innerHTML=
-    '<div class="metric-card" style="--accent:#fbbf24"><div class="metric-label">Gastos del mes</div><div class="metric-val">'+fmt(totG)+'</div><div class="metric-sub">'+gM.length+' transacciones</div></div>'+
-    '<div class="metric-card" style="--accent:#f87171"><div class="metric-label">Saldo TCs</div><div class="metric-val">'+fmt(totTC)+'</div></div>'+
-    '<div class="metric-card" style="--accent:#fb923c"><div class="metric-label">MSI pendiente</div><div class="metric-val">'+fmt(totMSI)+'</div></div>';
+  var alertasActivas=alertas.filter(function(a){return a["Atendida"]!=="Sí";});
 
+  document.getElementById("fin-metrics").innerHTML=
+    '<div class="metric-card" style="--accent:#4ade80"><div class="metric-label">Cuenta corriente</div><div class="metric-val">'+fmt(saldoCuenta)+'</div></div>'+
+    '<div class="metric-card" style="--accent:#f87171"><div class="metric-label">Total deuda TCs</div><div class="metric-val">'+fmt(totalTC)+'</div></div>'+
+    '<div class="metric-card" style="--accent:'+semaforoColor+'"><div class="metric-label">Saldo conciliado</div><div class="metric-val">'+fmt(saldoConciliado)+'</div><div class="metric-sub">'+semaforo+'</div></div>'+
+    '<div class="metric-card" style="--accent:#fbbf24"><div class="metric-label">Gastos del mes</div><div class="metric-val">'+fmt(totG)+'</div><div class="metric-sub">'+gMes.length+' transacciones</div></div>'+
+    '<div class="metric-card" style="--accent:#fb923c"><div class="metric-label">MSI pendiente</div><div class="metric-val">'+fmt(totMSI)+'</div></div>'+
+    '<div class="metric-card" style="--accent:#f87171"><div class="metric-label">Alertas activas</div><div class="metric-val">'+alertasActivas.length+'</div></div>';
+
+  // CONCILIACIÓN
+  var concHtml='<div class="sec">Conciliación de efectivo</div>';
+  concHtml+='<div style="background:#0f172a;border-radius:10px;padding:16px;font-family:monospace;font-size:13px;border:1px solid #334155">';
+  concHtml+='<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:#94a3b8">Cuenta Corriente:</span><span style="color:#4ade80;font-weight:700">'+fmt(saldoCuenta)+'</span></div>';
+  concHtml+='<div style="border-top:1px solid #334155;margin:8px 0"></div>';
+  if(tcs.length===0){
+    concHtml+='<div style="color:#64748b;font-size:12px">Sin tarjetas registradas</div>';
+  } else {
+    tcs.forEach(function(t){
+      if(+(t["Saldo actual"]||0)>0){
+        concHtml+='<div style="display:flex;justify-content:space-between;margin-bottom:6px">';
+        concHtml+='<span style="color:#94a3b8">(-) '+(t["Banco"]||"TC")+' ···'+(t["Últimos 4 dígitos"]||"")+' <span style="font-size:11px;color:#64748b">vence '+(t["Fecha límite pago"]||"—")+'</span></span>';
+        concHtml+='<span style="color:#f87171">'+fmt(t["Saldo actual"])+'</span>';
+        concHtml+='</div>';
+      }
+    });
+  }
+  concHtml+='<div style="border-top:1px solid #334155;margin:8px 0"></div>';
+  concHtml+='<div style="display:flex;justify-content:space-between;margin-top:8px">';
+  concHtml+='<span style="color:#f1f5f9;font-weight:700">(=) Saldo Conciliado:</span>';
+  concHtml+='<span style="color:'+semaforoColor+';font-weight:700;font-size:16px">'+fmt(saldoConciliado)+'</span>';
+  concHtml+='</div>';
+  concHtml+='<div style="text-align:right;font-size:12px;color:'+semaforoColor+';margin-top:4px">'+semaforo+'</div>';
+  concHtml+='</div>';
+
+  // ALERTAS ACTIVAS
+  if(alertasActivas.length>0){
+    concHtml+='<div class="sec">Alertas activas</div>';
+    alertasActivas.slice(0,5).forEach(function(a){
+      var c=a["Severidad"]==="Crítica"?"#f87171":a["Severidad"]==="Alta"?"#fbbf24":"#60a5fa";
+      concHtml+='<div class="alert" style="background:'+c+'15;border:1px solid '+c+'44;color:'+c+';margin-bottom:6px">';
+      concHtml+='<strong>'+( a["Tipo Alerta"]||"Alerta")+'</strong> — '+(a["Descripción"]||"—");
+      if(a["Monto"]) concHtml+=' <span style="float:right">'+fmt(a["Monto"])+'</span>';
+      concHtml+='</div>';
+    });
+  }
+
+  document.getElementById("fin-conciliacion").innerHTML=concHtml;
+
+  // TCs
   document.getElementById("fin-tcs").innerHTML=tcs.length===0?'<div class="empty">Sin tarjetas registradas</div>':
     tcs.map(function(t){
-      return'<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #1e293b"><div><div style="font-size:13px;font-weight:500">'+(t["Banco"]||"TC")+' &middot;&middot;&middot;'+(t["Últimos 4 dígitos"]||"")+'</div><div style="font-size:11px;color:#64748b">Corte: '+(t["Fecha corte"]||"—")+' &middot; Pago: '+(t["Fecha límite pago"]||"—")+'</div></div><div style="text-align:right"><div style="color:#f87171;font-weight:600">'+fmt(t["Saldo actual"])+'</div><div style="font-size:11px;color:#64748b">Limite '+fmt(t["Límite de crédito"])+'</div></div></div>';
+      var saldo=+(t["Saldo actual"]||0);
+      var limite=+(t["Límite de crédito"]||0);
+      var uso=limite>0?Math.round(saldo/limite*100):0;
+      return'<div style="padding:10px 0;border-bottom:1px solid #1e293b">'+
+        '<div style="display:flex;justify-content:space-between;margin-bottom:4px">'+
+        '<div style="font-size:13px;font-weight:500">'+(t["Banco"]||"TC")+' ···'+(t["Últimos 4 dígitos"]||"")+'</div>'+
+        '<div style="color:#f87171;font-weight:600">'+fmt(saldo)+'</div></div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin-bottom:6px">'+
+        '<span>Corte: '+(t["Fecha corte"]||"—")+' · Pago: '+(t["Fecha límite pago"]||"—")+'</span>'+
+        '<span>Límite: '+fmt(t["Límite de crédito"])+'</span></div>'+
+        '<div style="height:3px;background:#0f172a;border-radius:99px">'+
+        '<div style="height:3px;background:'+(uso>80?"#f87171":uso>50?"#fbbf24":"#4ade80")+';border-radius:99px;width:'+uso+'%"></div></div>'+
+        '</div>';
     }).join("");
 
   document.getElementById("fin-msi").innerHTML=msiAct.length===0?'<div class="empty">Sin MSI activos</div>':
