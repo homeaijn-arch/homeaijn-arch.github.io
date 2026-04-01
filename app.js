@@ -2,10 +2,10 @@ const CONFIG = {
   ALLOWED_EMAILS: ["gusjsierra@gmail.com","gabynacoud@gmail.com"],
   GOOGLE_API_KEY: "AIzaSyDu0YLxIpEopSoD9fEL3ykqDVslfEj_1X8",
   SHEETS: {
-    remo:     "1kNiQRb6HDHWOfORPcSVMCZ1GR7sKPJh_Kw72k_-fv9Y",
-    hogar:    "1eI4sE2R9cGt8M7UyHXvNge7v2JxQQFokoCNDJ5ivvbI",
-    finanzas: "1B47HwmB8-tlvCx4SHcqQosmHuJNBlVmcOzMH0RJv1UY",
-    compras:  "1fKhYBwGe0moSmVordD6iTSeQ9VmNN-sOS7QExgQ1aks"
+    remo:     "1fKhYBwGe0moSmVordD6iTSeQ9VmNN-sOS7QExgQ1aks",
+    hogar:    "1B47HwmB8-tlvCx4SHcqQosmHuJNBlVmcOzMH0RJv1UY",
+    finanzas: "1eI4sE2R9cGt8M7UyHXvNge7v2JxQQFokoCNDJ5ivvbI",
+    compras:  "1kNiQRb6HDHWOfORPcSVMCZ1GR7sKPJh_Kw72k_-fv9Y"
   }
 };
 
