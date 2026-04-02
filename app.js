@@ -51,7 +51,7 @@ function showPage(id, btn) {
 }
 
 function showFamTab(id, btn) {
-  ["tareas","salud","mascotas","tramites"].forEach(function(t){
+  ["tareas","calle","salud","mascotas","tramites"].forEach(function(t){
     var el=document.getElementById("fam-"+t); if(el) el.style.display="none";
   });
   document.querySelectorAll("#page-familiar .tab-btn").forEach(function(b){b.classList.remove("active");});
@@ -210,15 +210,87 @@ function renderFamiliar(){
   var tareas=DATA.fam.tareas,subs=DATA.fam.subtareas;
   var pend=tareas.filter(function(t){return t["Estado"]&&t["Estado"].indexOf("Completo")===-1&&t["Estado"].indexOf("Cancelado")===-1;});
   var subPend=subs.filter(function(s){return s["Estado"]&&s["Estado"].indexOf("Completo")===-1;});
+  var hoyMs=new Date(); hoyMs.setHours(0,0,0,0);
+  var vencidas=pend.filter(function(t){
+    if(!t["Fecha Límite"]) return false;
+    var fl=new Date(t["Fecha Límite"]); fl.setHours(0,0,0,0);
+    return fl<=hoyMs;
+  });
+  var criticas=vencidas.filter(function(t){
+    var fl=new Date(t["Fecha Límite"]); fl.setHours(0,0,0,0);
+    return Math.round((hoyMs-fl)/(1000*60*60*24))>7;
+  });
+  var proximas=pend.filter(function(t){
+    if(!t["Fecha Límite"]) return false;
+    var fl=new Date(t["Fecha Límite"]); fl.setHours(0,0,0,0);
+    var diff=Math.round((fl-hoyMs)/(1000*60*60*24));
+    return diff>=0&&diff<=3;
+  });
+
   document.getElementById("fam-metrics").innerHTML=
     '<div class="metric-card" style="--accent:#a78bfa"><div class="metric-label">Tareas pendientes</div><div class="metric-val">'+pend.length+'</div></div>'+
-    '<div class="metric-card" style="--accent:#f87171"><div class="metric-label">Subtareas pendientes</div><div class="metric-val">'+subPend.length+'</div></div>'+
+    '<div class="metric-card" style="--accent:#f87171"><div class="metric-label">Vencidas</div><div class="metric-val">'+vencidas.length+'</div><div class="metric-sub">'+(criticas.length>0?'<span style="color:#f87171">'+criticas.length+' críticas</span>':'Sin críticas')+'</div></div>'+
+    '<div class="metric-card" style="--accent:#fbbf24"><div class="metric-label">Vencen pronto</div><div class="metric-val">'+proximas.length+'</div><div class="metric-sub">próximos 3 días</div></div>'+
     '<div class="metric-card" style="--accent:#4ade80"><div class="metric-label">Completadas</div><div class="metric-val">'+tareas.filter(function(t){return t["Estado"]&&t["Estado"].indexOf("Completo")!==-1;}).length+'</div></div>'+
-    '<div class="metric-card" style="--accent:#fbbf24"><div class="metric-label">Prioridad alta</div><div class="metric-val">'+pend.filter(function(t){return t["Prioridad"]==="Alta";}).length+'</div></div>';
+    '<div class="metric-card" style="--accent:#f87171"><div class="metric-label">Subtareas pendientes</div><div class="metric-val">'+subPend.length+'</div></div>';
+
+  // PENDIENTES DE CALLE
+  var calleItems=DATA.fam.tareas.filter(function(t){
+    return(t["RequiereSalir"]==="Sí"||t["RequiereSalir"]==="Si")&&t["Estado"]&&t["Estado"].indexOf("Completo")===-1;
+  }).concat(DATA.fam.tramites.filter(function(t){
+    return(t["RequiereSalir"]==="Sí"||t["RequiereSalir"]==="Si")&&t["Estado"]&&t["Estado"].indexOf("Completo")===-1;
+  }));
+
+  var calleHtml="";
+  if(calleItems.length===0){
+    calleHtml='<div class="empty">Sin pendientes que requieran salir hoy 🎉<br><span style="font-size:11px;color:#64748b">Al agregar tareas puedes indicar si requieren salir y en qué zona</span></div>';
+  } else {
+    var zonas={};
+    calleItems.forEach(function(t){
+      var z=t["Zona"]||"Sin zona definida";
+      if(!zonas[z]) zonas[z]=[];
+      zonas[z].push(t);
+    });
+    Object.keys(zonas).forEach(function(z){
+      calleHtml+='<div style="margin-bottom:14px">';
+      calleHtml+='<div style="font-size:12px;font-weight:600;color:#60a5fa;margin-bottom:6px;display:flex;align-items:center;gap:6px">📍 '+z.toUpperCase()+'</div>';
+      zonas[z].forEach(function(t){
+        var pc2=t["Prioridad"]==="Alta"?"#f87171":t["Prioridad"]==="Baja"?"#4ade80":"#60a5fa";
+        calleHtml+='<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1e293b">';
+        calleHtml+='<div><div style="font-size:13px">'+(t["Descripción"]||t["Nombre"]||t["Tipo Tramite"]||"—")+'</div>';
+        if(t["DireccionReferencia"]) calleHtml+='<div style="font-size:11px;color:#64748b">📍 '+t["DireccionReferencia"]+'</div>';
+        calleHtml+='</div>'+bdg(t["Prioridad"]||"Media",pc2)+'</div>';
+      });
+      calleHtml+='</div>';
+    });
+    calleHtml+='<div style="margin-top:12px;padding:10px;background:#0f172a;border-radius:8px;border:1px solid #334155">';
+    calleHtml+='<div style="font-size:12px;color:#64748b;margin-bottom:4px">RESUMEN</div>';
+    calleHtml+='<div style="font-size:13px">'+calleItems.length+' pendiente(s) en '+Object.keys(zonas).length+' zona(s)</div>';
+    calleHtml+='</div>';
+  }
+  document.getElementById("fam-calle-content").innerHTML=calleHtml;
 
   document.getElementById("fam-tareas-tbody").innerHTML=tareas.length===0?erow(6,"Sin tareas"):
     tareas.map(function(t){
-      return'<tr><td style="color:#94a3b8">'+(t["Categoría"]||"—")+'</td><td style="font-weight:500">'+(t["Descripción"]||"—")+'</td><td>'+bdg(t["Prioridad"]||"Media",pc(t["Prioridad"]))+'</td><td>'+bdg(t["Estado"]||"—",ec(t["Estado"]))+'</td><td style="color:#94a3b8">'+(t["Asignado A"]||"—")+'</td><td style="color:#64748b">'+(t["Fecha Límite"]||"—")+'</td></tr>';
+      var hoy=new Date(); hoy.setHours(0,0,0,0);
+      var dias=0; var nivelColor="#64748b"; var diasLabel="";
+      if(t["Fecha Límite"]&&t["Estado"]&&t["Estado"].indexOf("Completo")===-1){
+        var fl=new Date(t["Fecha Límite"]); fl.setHours(0,0,0,0);
+        dias=Math.round((hoy-fl)/(1000*60*60*24));
+        if(dias>7){nivelColor="#f87171";diasLabel='<span style="color:#f87171;font-size:10px;font-weight:700">🚨 '+dias+'d vencida</span>';}
+        else if(dias>=3){nivelColor="#f87171";diasLabel='<span style="color:#f87171;font-size:10px">🔴 '+dias+'d vencida</span>';}
+        else if(dias>=0){nivelColor="#fb923c";diasLabel='<span style="color:#fb923c;font-size:10px">🟠 vencida</span>';}
+        else if(dias>=-3){nivelColor="#fbbf24";diasLabel='<span style="color:#fbbf24;font-size:10px">🟡 vence en '+Math.abs(dias)+'d</span>';}
+      }
+      var rowBorder=dias>0?'border-left:2px solid '+nivelColor+';':'';
+      return'<tr style="'+rowBorder+'">'+
+        '<td style="color:#94a3b8">'+(t["Categoría"]||"—")+'</td>'+
+        '<td style="font-weight:500">'+(t["Descripción"]||"—")+'<br>'+diasLabel+'</td>'+
+        '<td>'+bdg(t["Prioridad"]||"Media",pc(t["Prioridad"]))+'</td>'+
+        '<td>'+bdg(t["Estado"]||"—",ec(t["Estado"]))+'</td>'+
+        '<td style="color:#94a3b8">'+(t["Asignado A"]||"—")+'</td>'+
+        '<td style="color:'+(dias>0?nivelColor:"#64748b")+';font-weight:'+(dias>0?600:400)+'">'+
+        (t["Fecha Límite"]||"—")+'</td></tr>';
     }).join("");
 
   var grouped={};
