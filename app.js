@@ -254,8 +254,120 @@ function showArticuloDetail(idx){
 }
 
 // ============================================================
-// MODAL EDIT/ADD
+// CUSTOM DATE PICKER
 // ============================================================
+var CAL_STATE={fieldId:null,year:0,month:0,selected:null};
+
+function dateToDisplay(iso){
+  if(!iso)return"";
+  var p=iso.split("-");
+  if(p.length!==3)return iso;
+  return p[2]+"/"+p[1]+"/"+p[0];
+}
+function isoToDisplay(iso){return dateToDisplay(iso);}
+function displayToIso(d){
+  if(!d)return"";
+  // DD/MM/YYYY → YYYY-MM-DD
+  var p=d.split("/");
+  if(p.length===3)return p[2]+"-"+("0"+p[1]).slice(-2)+"-"+("0"+p[0]).slice(-2);
+  return d;
+}
+
+function openCal(fieldId){
+  // Cerrar cualquier otro calendario abierto
+  document.querySelectorAll(".cal-popup.open").forEach(function(c){c.classList.remove("open");});
+  var popup=document.getElementById("cal-"+fieldId);
+  if(!popup)return;
+  // Leer valor actual del campo hidden
+  var hiddenIso=document.getElementById("hid-"+fieldId).value;
+  var now=new Date();
+  if(hiddenIso){var d=new Date(hiddenIso);CAL_STATE.year=d.getFullYear();CAL_STATE.month=d.getMonth();CAL_STATE.selected=hiddenIso;}
+  else{CAL_STATE.year=now.getFullYear();CAL_STATE.month=now.getMonth();CAL_STATE.selected=null;}
+  CAL_STATE.fieldId=fieldId;
+  renderCal(popup);
+  popup.classList.add("open");
+  // Cerrar al click fuera
+  setTimeout(function(){
+    function outside(e){if(!popup.contains(e.target)&&e.target.id!=="disp-"+fieldId){popup.classList.remove("open");document.removeEventListener("click",outside);}}
+    document.addEventListener("click",outside);
+  },0);
+}
+
+function calNav(dir){
+  CAL_STATE.month+=dir;
+  if(CAL_STATE.month>11){CAL_STATE.month=0;CAL_STATE.year++;}
+  if(CAL_STATE.month<0){CAL_STATE.month=11;CAL_STATE.year--;}
+  var popup=document.getElementById("cal-"+CAL_STATE.fieldId);
+  if(popup)renderCal(popup);
+}
+
+function calPickToday(){
+  var now=new Date();
+  var iso=now.toISOString().split("T")[0];
+  calSelect(iso);
+}
+
+function calClear(){
+  var fid=CAL_STATE.fieldId;
+  document.getElementById("hid-"+fid).value="";
+  document.getElementById("disp-"+fid).querySelector("span").textContent="Seleccionar fecha...";
+  document.getElementById("cal-"+fid).classList.remove("open");
+}
+
+function calSelect(iso){
+  var fid=CAL_STATE.fieldId;
+  CAL_STATE.selected=iso;
+  document.getElementById("hid-"+fid).value=iso;
+  document.getElementById("disp-"+fid).querySelector("span").textContent=dateToDisplay(iso);
+  document.getElementById("cal-"+fid).classList.remove("open");
+}
+
+function renderCal(popup){
+  var y=CAL_STATE.year,m=CAL_STATE.month;
+  var months=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  var days=["Do","Lu","Ma","Mi","Ju","Vi","Sa"];
+  var first=new Date(y,m,1).getDay(); // 0=Sunday
+  var daysInMonth=new Date(y,m+1,0).getDate();
+  var todayIso=new Date().toISOString().split("T")[0];
+  var cells="";
+  days.forEach(function(d){cells+='<div class="cal-day-name">'+d+'</div>';});
+  for(var i=0;i<first;i++)cells+='<div class="cal-day empty"></div>';
+  for(var d=1;d<=daysInMonth;d++){
+    var iso=y+"-"+("0"+(m+1)).slice(-2)+"-"+("0"+d).slice(-2);
+    var cls="cal-day";
+    if(iso===todayIso)cls+=" today";
+    if(iso===CAL_STATE.selected)cls+=" selected";
+    cells+='<div class="'+cls+'" onclick="calSelect(\''+iso+'\')">'+d+'</div>';
+  }
+  popup.innerHTML=
+    '<div class="cal-header">'
+    +'<button class="cal-nav" onclick="calNav(-1)">‹</button>'
+    +'<span class="cal-month-label">'+months[m]+' '+y+'</span>'
+    +'<button class="cal-nav" onclick="calNav(1)">›</button>'
+    +'</div>'
+    +'<div class="cal-grid">'+cells+'</div>'
+    +'<div class="cal-footer">'
+    +'<button class="cal-clear" onclick="calClear()">Limpiar</button>'
+    +'<button class="cal-today-btn" onclick="calPickToday()">Hoy</button>'
+    +'</div>';
+}
+
+function makeDateField(fieldId,currentVal){
+  // currentVal puede ser DD/MM/YYYY o YYYY-MM-DD o vacío
+  var iso="",display="Seleccionar fecha...";
+  if(currentVal){
+    if(/^\d{4}-\d{2}-\d{2}$/.test(currentVal)){iso=currentVal;display=dateToDisplay(currentVal);}
+    else if(/^\d{2}\/\d{2}\/\d{4}$/.test(currentVal)){iso=displayToIso(currentVal);display=currentVal;}
+    else{display=currentVal;} // formato desconocido, mostrar como texto
+  }
+  return '<div class="date-wrap">'
+    +'<input type="hidden" id="hid-'+fieldId+'" value="'+esc(iso)+'"/>'
+    +'<div class="date-display" id="disp-'+fieldId+'" onclick="openCal(\''+fieldId+'\')">'
+    +'<span>'+esc(display)+'</span><span class="cal-icon">📅</span>'
+    +'</div>'
+    +'<div class="cal-popup" id="cal-'+fieldId+'"></div>'
+    +'</div>';
+}
 var MODAL_CFG={
   remo:   {sheetId:CONFIG.SHEETS.remo,    tab:"ProyectosMaestro", dataFn:function(){return DATA.remo;},
             fields:["Área","Nombre del Proyecto","Etapa Actual","Estado","Prioridad","Presupuesto MXN","Costo Real MXN","Total Pagado MXN","Contratista","Fecha Inicio","Fecha Fin Estimada","Notas / Dependencias"]},
@@ -318,17 +430,7 @@ function renderModalFields(fields,row){
     if(opts){
       inp='<select class="field-input" id="mf_'+f+'"><option value="">—</option>'+opts.map(function(o){return'<option value="'+o+'"'+(o===val?" selected":"")+'>'+o+'</option>';}).join("")+'</select>';
     } else if(isDate){
-      // Normalizar valor a YYYY-MM-DD para el input type=date
-      var dval="";
-      if(val){
-        var d=new Date(val);
-        if(!isNaN(d.getTime())){
-          dval=d.toISOString().split("T")[0];
-        } else {
-          dval=val; // dejar como está si no se puede parsear
-        }
-      }
-      inp='<input type="date" class="field-input date-input" id="mf_'+f+'" value="'+esc(dval)+'"/>';
+      inp=makeDateField("mf_"+f,val);
     } else if(f==="Notas"||f==="Descripción"||f.indexOf("Notas")!==-1){
       inp='<textarea class="field-input" id="mf_'+f+'" rows="3">'+esc(val)+'</textarea>';
     } else {
@@ -343,15 +445,16 @@ function saveModal(){
   var fields=cfg.fields;
   var values={};
   fields.forEach(function(f){
-    var el=document.getElementById("mf_"+f);
-    if(!el)return;
-    var v=el.value;
-    // Convertir YYYY-MM-DD a DD/MM/YYYY para guardar en el Sheet
-    if(DATE_FIELDS.indexOf(f)!==-1&&v&&/^\d{4}-\d{2}-\d{2}$/.test(v)){
-      var parts=v.split("-");
-      v=parts[2]+"/"+parts[1]+"/"+parts[0];
+    var isDate=DATE_FIELDS.indexOf(f)!==-1;
+    if(isDate){
+      // Leer del hidden input y convertir ISO → DD/MM/YYYY
+      var hid=document.getElementById("hid-mf_"+f);
+      var iso=hid?hid.value:"";
+      values[f]=iso?dateToDisplay(iso):"";
+    } else {
+      var el=document.getElementById("mf_"+f);
+      values[f]=el?el.value:"";
     }
-    values[f]=v;
   });
   var p;
   if(EDIT_STATE.isNew){

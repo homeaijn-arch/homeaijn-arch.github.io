@@ -87,9 +87,30 @@ tr:hover td{background:#1e293b44}
 .field-input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:7px 10px;color:#f1f5f9;font-size:13px}
 .field-input:focus{outline:none;border-color:#3b82f6}
 select.field-input option{background:#1e293b}
-input[type="date"].date-input{color-scheme:dark;cursor:pointer}
-input[type="date"].date-input::-webkit-calendar-picker-indicator{filter:invert(1) opacity(.6);cursor:pointer}
-input[type="date"].date-input::-webkit-calendar-picker-indicator:hover{filter:invert(1) opacity(1)}
+/* Date picker custom */
+.date-wrap{position:relative}
+.date-display{width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:7px 10px;color:#f1f5f9;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none}
+.date-display:hover{border-color:#3b82f6}
+.date-display .cal-icon{font-size:14px;opacity:.6}
+.cal-popup{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:600;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px;box-shadow:0 8px 32px rgba(0,0,0,.5);min-width:260px}
+.cal-popup.open{display:block}
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cal-nav{background:transparent;border:none;color:#94a3b8;font-size:16px;cursor:pointer;padding:2px 8px;border-radius:4px}
+.cal-nav:hover{background:#334155;color:#f1f5f9}
+.cal-month-label{font-size:13px;font-weight:600;color:#f1f5f9}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-day-name{font-size:10px;color:#64748b;text-align:center;padding:2px 0;font-weight:500}
+.cal-day{font-size:12px;text-align:center;padding:5px 2px;border-radius:4px;cursor:pointer;color:#94a3b8;border:1px solid transparent}
+.cal-day:hover:not(.empty):not(.other){background:#334155;color:#f1f5f9}
+.cal-day.today{color:#60a5fa;font-weight:700}
+.cal-day.selected{background:#1d4ed8;color:#fff;border-color:#3b82f6}
+.cal-day.other{color:#334155;cursor:default}
+.cal-day.empty{cursor:default}
+.cal-footer{display:flex;justify-content:space-between;margin-top:10px;gap:6px}
+.cal-clear{font-size:11px;background:transparent;border:1px solid #334155;border-radius:5px;color:#64748b;padding:4px 10px;cursor:pointer}
+.cal-clear:hover{color:#f87171;border-color:#f87171}
+.cal-today-btn{font-size:11px;background:#1d4ed8;border:none;border-radius:5px;color:#fff;padding:4px 10px;cursor:pointer}
+.cal-today-btn:hover{background:#2563eb}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
 .btn-save{padding:6px 16px;background:#166534;color:#4ade80;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500}
 .btn-save:hover{background:#16a34a}
