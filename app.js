@@ -274,13 +274,21 @@ var MODAL_CFG={
 };
 
 var SELECT_OPTS={
-  "Estado":       ["Pendiente","Planeando","En Proceso","En Prueba","Completo","Bloqueado","Cancelado"],
-  "Prioridad":    ["Alta","Media","Baja"],
+  "Estado":        ["Pendiente","Planeando","En Proceso","En Prueba","Completo","Bloqueado","Cancelado"],
+  "Prioridad":     ["Alta","Media","Baja"],
   "Método de pago":["Efectivo","Tarjeta Débito","Tarjeta Crédito","Transferencia","OXXO Pay","PayPal"],
-  "RequiereSalir":["Sí","No"],
-  "MSI":          ["No","Sí"],
-  "Recurrencia":  ["Unica","Diaria","Semanal","Quincenal","Mensual","Anual"]
+  "RequiereSalir": ["Sí","No"],
+  "MSI":           ["No","Sí"],
+  "Recurrencia":   ["Unica","Diaria","Semanal","Quincenal","Mensual","Anual"],
+  "Asignado A":    ["Gustavo","Gaby"],
+  "Responsable":   ["Gustavo","Gaby"],
+  "Miembro Familia":["Gustavo","Gaby","Familia"]
 };
+
+// Campos que deben mostrar datepicker
+var DATE_FIELDS=["Fecha","Fecha Inicio","Fecha Fin Estimada","Fecha Límite","Fecha Corte","Fecha Compra",
+  "Fecha Próxima Vacuna","Próxima Cita","Fecha Caducidad","Fecha Vencimiento Garantia",
+  "Fecha Vencimiento Garantía","Fecha Limite"];
 
 var EDIT_STATE={key:null,idx:null,isNew:false};
 
@@ -303,13 +311,29 @@ function openAddModal(key){
 
 function renderModalFields(fields,row){
   document.getElementById("modal-fields").innerHTML=fields.map(function(f){
-    var val=esc(row[f]||"");
+    var val=row[f]||"";
     var opts=SELECT_OPTS[f];
-    var inp=opts
-      ?'<select class="field-input" id="mf_'+esc(f)+'"><option value="">—</option>'+opts.map(function(o){return'<option value="'+o+'"'+(o===row[f]?" selected":"")+'>'+o+'</option>';}).join("")+'</select>'
-      :(f==="Notas"||f==="Descripción"||f.indexOf("Notas")!==-1)
-        ?'<textarea class="field-input" id="mf_'+esc(f)+'" rows="3">'+val+'</textarea>'
-        :'<input class="field-input" id="mf_'+esc(f)+'" value="'+val+'"/>';
+    var isDate=DATE_FIELDS.indexOf(f)!==-1;
+    var inp;
+    if(opts){
+      inp='<select class="field-input" id="mf_'+f+'"><option value="">—</option>'+opts.map(function(o){return'<option value="'+o+'"'+(o===val?" selected":"")+'>'+o+'</option>';}).join("")+'</select>';
+    } else if(isDate){
+      // Normalizar valor a YYYY-MM-DD para el input type=date
+      var dval="";
+      if(val){
+        var d=new Date(val);
+        if(!isNaN(d.getTime())){
+          dval=d.toISOString().split("T")[0];
+        } else {
+          dval=val; // dejar como está si no se puede parsear
+        }
+      }
+      inp='<input type="date" class="field-input date-input" id="mf_'+f+'" value="'+esc(dval)+'"/>';
+    } else if(f==="Notas"||f==="Descripción"||f.indexOf("Notas")!==-1){
+      inp='<textarea class="field-input" id="mf_'+f+'" rows="3">'+esc(val)+'</textarea>';
+    } else {
+      inp='<input class="field-input" id="mf_'+f+'" value="'+esc(val)+'"/>';
+    }
     return'<div class="field-group"><label class="field-label">'+f+'</label>'+inp+'</div>';
   }).join("");
 }
@@ -320,7 +344,14 @@ function saveModal(){
   var values={};
   fields.forEach(function(f){
     var el=document.getElementById("mf_"+f);
-    if(el)values[f]=el.value;
+    if(!el)return;
+    var v=el.value;
+    // Convertir YYYY-MM-DD a DD/MM/YYYY para guardar en el Sheet
+    if(DATE_FIELDS.indexOf(f)!==-1&&v&&/^\d{4}-\d{2}-\d{2}$/.test(v)){
+      var parts=v.split("-");
+      v=parts[2]+"/"+parts[1]+"/"+parts[0];
+    }
+    values[f]=v;
   });
   var p;
   if(EDIT_STATE.isNew){
