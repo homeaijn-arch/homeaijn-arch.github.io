@@ -87,17 +87,17 @@ function loadAllData(){
     fetchSheet(CONFIG.SHEETS.hogar,   "Salud"),
     fetchSheet(CONFIG.SHEETS.hogar,   "Mascotas"),
     fetchSheet(CONFIG.SHEETS.hogar,   "Tramites"),
-    fetchSheet(CONFIG.SHEETS.finanzas,"Gastos"),
-    fetchSheet(CONFIG.SHEETS.finanzas,"Tarjetas"),
-    fetchSheet(CONFIG.SHEETS.finanzas,"MSIActivos"),
+    fetchSheetWithRows(CONFIG.SHEETS.finanzas,"Gastos"),
+    fetchSheetWithRows(CONFIG.SHEETS.finanzas,"Tarjetas"),
+    fetchSheetWithRows(CONFIG.SHEETS.finanzas,"MSIActivos"),
     fetchSheet(CONFIG.SHEETS.compras, "Articulos"),
     fetchSheet(CONFIG.SHEETS.hogar,   "MenuSemanal"),
     fetchSheet(CONFIG.SHEETS.hogar,   "Despensa"),
     fetchSheet(CONFIG.SHEETS.hogar,   "ListadeCompras"),
     fetchSheet(CONFIG.SHEETS.hogar,   "HistorialNutricional"),
-    fetchSheet(CONFIG.SHEETS.finanzas,"Cuentas"),
-    fetchSheet(CONFIG.SHEETS.finanzas,"Movimientos"),
-    fetchSheet(CONFIG.SHEETS.finanzas,"AlertasFinancieras")
+    fetchSheetWithRows(CONFIG.SHEETS.finanzas,"Cuentas"),
+    fetchSheetWithRows(CONFIG.SHEETS.finanzas,"Movimientos"),
+    fetchSheetWithRows(CONFIG.SHEETS.finanzas,"AlertasFinancieras")
   ]).then(function(res){
     DATA={
       remo:res[0],
@@ -514,104 +514,176 @@ function showToast(msg){
 }
 
 // ============================================================
-// FINANZAS — CORREGIDO
+
 // ============================================================
+// FINANZAS — CRUD COMPLETO
+// Cuentas (efectivo/débito/ahorro) + Tarjetas crédito
+// Movimientos que afectan saldos + Conciliación en tiempo real
+// Escribe a Google Sheets via OAuth (sheets.googleapis.com)
+// ============================================================
+
+// ── Estado OAuth ────────────────────────────────────────────
+var FIN_TOKEN = null; // access_token OAuth para escritura
+
+// Solicitar token OAuth con scope de escritura
+function requestFinToken(onSuccess){
+  if(FIN_TOKEN){onSuccess();return;}
+  // Usar Google Identity Services (ya cargado para login)
+  var client = google.accounts.oauth2.initTokenClient({
+    client_id: CONFIG.GOOGLE_API_KEY ? undefined : null,
+    // Reusar el client_id del login de la app
+    client_id: "715701428085-ouqraaqrh6s4qb9ho7mtec3h57u08fhn.apps.googleusercontent.com",
+    scope: "https://www.googleapis.com/auth/spreadsheets",
+    callback: function(resp){
+      if(resp.error){showToast("Error de autenticación: "+resp.error);return;}
+      FIN_TOKEN = resp.access_token;
+      onSuccess();
+    }
+  });
+  client.requestAccessToken();
+}
+
+// ── Escritura a Sheets ───────────────────────────────────────
+
+// Agrega una fila al final de un tab
+function appendRow(sheetId, tab, values, cb){
+  var url="https://sheets.googleapis.com/v4/spreadsheets/"+sheetId+"/values/"+encodeURIComponent(tab)+"!A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS";
+  fetch(url,{
+    method:"POST",
+    headers:{"Authorization":"Bearer "+FIN_TOKEN,"Content-Type":"application/json"},
+    body:JSON.stringify({values:[values]})
+  }).then(function(r){return r.json();}).then(function(d){
+    if(d.error){showToast("Error al guardar: "+d.error.message);}
+    else{if(cb)cb(d);}
+  }).catch(function(e){showToast("Error de red: "+e.message);});
+}
+
+// Actualiza una fila específica (por número de fila Google Sheets, base 1 + 1 header = fila 2+)
+function updateRow(sheetId, tab, rowNum, values, cb){
+  var cols = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  var endCol = cols[values.length-1] || "Z";
+  var range = encodeURIComponent(tab)+"!A"+rowNum+":"+endCol+rowNum;
+  var url="https://sheets.googleapis.com/v4/spreadsheets/"+sheetId+"/values/"+range+"?valueInputOption=USER_ENTERED";
+  fetch(url,{
+    method:"PUT",
+    headers:{"Authorization":"Bearer "+FIN_TOKEN,"Content-Type":"application/json"},
+    body:JSON.stringify({values:[values]})
+  }).then(function(r){return r.json();}).then(function(d){
+    if(d.error){showToast("Error al actualizar: "+d.error.message);}
+    else{if(cb)cb(d);}
+  }).catch(function(e){showToast("Error de red: "+e.message);});
+}
+
+// Borra contenido de una fila (la deja vacía — Sheets no elimina filas fácilmente via API básica)
+function clearRow(sheetId, tab, rowNum, numCols, cb){
+  var cols="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  var endCol=cols[numCols-1]||"Z";
+  var range=encodeURIComponent(tab)+"!A"+rowNum+":"+endCol+rowNum;
+  fetch("https://sheets.googleapis.com/v4/spreadsheets/"+sheetId+"/values/"+range+":clear",{
+    method:"POST",
+    headers:{"Authorization":"Bearer "+FIN_TOKEN,"Content-Type":"application/json"}
+  }).then(function(r){return r.json();}).then(function(d){
+    if(d.error){showToast("Error al eliminar: "+d.error.message);}
+    else{if(cb)cb(d);}
+  }).catch(function(e){showToast("Error de red: "+e.message);});
+}
+
+// Leer con filas + índice para saber número de fila en Sheet
+function fetchSheetWithRows(id, tab){
+  var url="https://sheets.googleapis.com/v4/spreadsheets/"+id+"/values/"+encodeURIComponent(tab.trim())+"?key="+CONFIG.GOOGLE_API_KEY;
+  return fetch(url).then(function(r){return r.json();}).then(function(d){
+    if(d.error||!d.values||d.values.length<2)return[];
+    var h=d.values[0];
+    return d.values.slice(1).map(function(row,i){
+      var o={_rowNum:i+2}; // fila 1=header, datos desde fila 2
+      h.forEach(function(k,j){o[k.trim()]=(row[j]||"").trim();});
+      return o;
+    });
+  }).catch(function(){return[];});
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+function getSaldo(obj){return +(obj["SaldoActual"]||obj["Saldo Actual"]||obj["saldo"]||obj["Saldo"]||0);}
+function getLimite(obj){return +(obj["LimiteCredito"]||obj["Límite Crédito"]||obj["LimiteCredito"]||0);}
+function getPago(obj){return obj["FechaLimitePago"]||obj["Fecha Limite Pago"]||obj["Fecha Límite Pago"]||"—";}
+function getUltimos(obj){return obj["Ultimos4"]||obj["Últimos 4"]||obj["ultimos4"]||"";}
+function getBanco(obj){return obj["Banco"]||obj["banco"]||obj["Nombre"]||obj["nombre"]||"Cuenta";}
+function getTipo(obj){return obj["Tipo"]||obj["tipo"]||"";}
+function hoy(){return new Date().toISOString().slice(0,10);}
+
+// ── RENDER PRINCIPAL FINANZAS ────────────────────────────────
 function renderFinanzas(){
   var gastos=DATA.fin.gastos||[];
   var tcs=DATA.fin.tcs||[];
-  var msi=DATA.fin.msi||[];
-  var cuentas=(DATA.fin.cuentas||[]).filter(function(c){
-    var activa=c["Activa"]||c["activa"]||"";
-    return activa!=="No"&&activa!=="no";
-  });
-  var tarjetas=tcs.filter(function(t){
-    var activa=t["Activa"]||t["activa"]||"";
-    return activa!=="No"&&activa!=="no";
-  });
-  var alertas=(DATA.fin.alertas||[]).filter(function(a){
-    var at=a["Atendida"]||a["atendida"]||"";
-    return at!=="Sí"&&at!=="Si"&&at!=="si";
-  });
+  var cuentas=(DATA.fin.cuentas||[]).filter(function(c){var a=c["Activa"]||"";return a!=="No"&&a!=="no";});
+  var tarjetas=tcs.filter(function(t){var a=t["Activa"]||"";return a!=="No"&&a!=="no";});
+  var alertas=(DATA.fin.alertas||[]).filter(function(a){var at=a["Atendida"]||"";return at!=="Sí"&&at!=="Si";});
   var now=new Date();
-
-  // Calcular totales — buscar campo con variantes de nombre
-  function getSaldo(obj){
-    return +(obj["SaldoActual"]||obj["Saldo Actual"]||obj["saldo"]||obj["Saldo"]||0);
-  }
-  function getLimite(obj){
-    return +(obj["LimiteCredito"]||obj["Límite Crédito"]||obj["LimiteCredito"]||0);
-  }
-  function getPago(obj){
-    return obj["FechaLimitePago"]||obj["Fecha Limite Pago"]||obj["Fecha Límite Pago"]||"—";
-  }
-  function getUltimos(obj){
-    return obj["Ultimos4"]||obj["Últimos 4"]||obj["ultimos4"]||"";
-  }
-  function getBanco(obj){
-    return obj["Banco"]||obj["banco"]||obj["Nombre"]||obj["nombre"]||"Cuenta";
-  }
-  function getTipo(obj){
-    return obj["Tipo"]||obj["tipo"]||"";
-  }
 
   var totalC=cuentas.reduce(function(s,c){return s+getSaldo(c);},0);
   var totalT=tarjetas.reduce(function(s,t){return s+getSaldo(t);},0);
   var sc=totalC-totalT;
   var scc=sc>(totalT*2)||totalT===0?"#4ade80":sc>0?"#fbbf24":"#f87171";
-  var sem=sc>(totalT*2)||totalT===0?"Saludable":sc>0?"Atencion":"Critico";
+  var sem=sc>(totalT*2)||totalT===0?"Saludable":sc>0?"Atención":"Crítico";
 
   var gM=gastos.filter(function(g){
-    try{
-      var fechaStr=g["Fecha"]||g["fecha"]||"";
-      if(!fechaStr)return false;
-      var f=new Date(fechaStr);
-      return f.getMonth()===now.getMonth()&&f.getFullYear()===now.getFullYear();
-    }catch(e){return false;}
+    try{var f=new Date(g["Fecha"]||"");return f.getMonth()===now.getMonth()&&f.getFullYear()===now.getFullYear();}
+    catch(e){return false;}
   });
-  var totG=gM.reduce(function(s,g){return s+(+(g["Monto"]||g["monto"]||0));},0);
-  var msiAct=msi.filter(function(m){return m["Estado"]!=="Cerrado";});
+  var totG=gM.reduce(function(s,g){return s+(+(g["Monto"]||0));},0);
 
   // Métricas
   document.getElementById("fin-metrics").innerHTML=
-    '<div class="metric-card" style="--accent:#4ade80"><div class="metric-label">Total cuentas</div><div class="metric-val">'+fmt(totalC)+'</div><div class="metric-sub">'+(cuentas.length>0?cuentas.length+' activa(s)':'Sin cuentas')+'</div></div>'+
-    '<div class="metric-card" style="--accent:#f87171"><div class="metric-label">Total deuda TCs</div><div class="metric-val">'+fmt(totalT)+'</div><div class="metric-sub">'+(tarjetas.length>0?tarjetas.length+' tarjeta(s)':'Sin tarjetas')+'</div></div>'+
+    '<div class="metric-card" style="--accent:#4ade80"><div class="metric-label">Total cuentas</div><div class="metric-val">'+fmt(totalC)+'</div><div class="metric-sub">'+cuentas.length+' activa(s)</div></div>'+
+    '<div class="metric-card" style="--accent:#f87171"><div class="metric-label">Deuda tarjetas</div><div class="metric-val">'+fmt(totalT)+'</div><div class="metric-sub">'+tarjetas.length+' tarjeta(s)</div></div>'+
     '<div class="metric-card" style="--accent:'+scc+'"><div class="metric-label">Saldo conciliado</div><div class="metric-val">'+fmt(sc)+'</div><div class="metric-sub">'+sem+'</div></div>'+
     '<div class="metric-card" style="--accent:#fbbf24"><div class="metric-label">Gastos del mes</div><div class="metric-val">'+fmt(totG)+'</div><div class="metric-sub">'+gM.length+' mov.</div></div>'+
-    (msiAct.length>0?'<div class="metric-card" style="--accent:#a78bfa"><div class="metric-label">MSI activos</div><div class="metric-val">'+msiAct.length+'</div></div>':'')+
     (alertas.length>0?'<div class="metric-card" style="--accent:#f87171"><div class="metric-label">Alertas</div><div class="metric-val">'+alertas.length+'</div></div>':"");
 
-  // Panel de conciliación
-  var h='<div class="card" style="margin-bottom:10px"><div class="sec">Conciliacion</div>';
-  h+='<div style="background:#0f172a;border-radius:8px;padding:16px;font-size:13px;border:1px solid #334155">';
+  renderFinConciliacion(cuentas, tarjetas, sc, scc, sem, alertas);
+  renderFinCuentas(cuentas);
+  renderFinTarjetas(tarjetas);
+  renderFinGastos(gastos);
+}
+
+// ── CONCILIACIÓN ─────────────────────────────────────────────
+function renderFinConciliacion(cuentas, tarjetas, sc, scc, sem, alertas){
+  var h='<div class="card" style="margin-bottom:10px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">'+
+    '<div class="sec" style="margin:0">Conciliación</div>'+
+    '</div>';
+
+  h+='<div style="background:#0f172a;border-radius:8px;padding:16px;border:1px solid #334155;font-size:13px">';
 
   // Cuentas
+  h+='<div style="font-size:11px;font-weight:600;color:#4ade80;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">(+) Efectivo / Cuentas</div>';
   if(cuentas.length===0){
-    h+='<div style="color:#64748b;font-size:12px;padding:8px 0">Sin cuentas registradas — dile al agente: "agrega cuenta efectivo con saldo $X,XXX"</div>';
+    h+='<div style="color:#475569;font-size:12px;padding:6px 0 10px">Sin cuentas. Agrega una con el botón de arriba.</div>';
   } else {
     cuentas.forEach(function(c){
-      h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
-        '<span style="color:#94a3b8">'+getBanco(c)+' <span style="font-size:11px;color:#64748b">['+getTipo(c)+']</span></span>'+
+      h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0">'+
+        '<span style="color:#94a3b8">'+getBanco(c)+' <span style="font-size:11px;color:#475569">['+getTipo(c)+']</span></span>'+
         '<span style="color:#4ade80;font-weight:600">'+fmt(getSaldo(c))+'</span>'+
         '</div>';
     });
   }
 
-  h+='<div style="border-top:1px solid #334155;margin:8px 0;padding-top:8px;display:flex;justify-content:space-between">'+
-    '<span style="color:#94a3b8;font-size:12px">Total disponible</span>'+
-    '<span style="color:#4ade80;font-weight:600">'+fmt(totalC)+'</span>'+
+  h+='<div style="display:flex;justify-content:space-between;padding:7px 0;border-top:1px solid #334155;margin-top:4px">'+
+    '<span style="color:#64748b;font-size:12px">Total disponible</span>'+
+    '<span style="color:#4ade80;font-weight:700">'+fmt(cuentas.reduce(function(s,c){return s+getSaldo(c);},0))+'</span>'+
     '</div>';
 
-  // Tarjetas de crédito
-  h+='<div style="margin:8px 0 6px;color:#64748b;font-size:12px">(−) Tarjetas de crédito:</div>';
+  // Tarjetas
+  h+='<div style="font-size:11px;font-weight:600;color:#f87171;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 8px">(−) Tarjetas de crédito</div>';
   if(tarjetas.length===0){
-    h+='<div style="color:#64748b;font-size:12px;padding:4px 0">Sin tarjetas activas</div>';
+    h+='<div style="color:#475569;font-size:12px;padding:4px 0">Sin tarjetas.</div>';
   } else {
     tarjetas.forEach(function(t){
       var sd=getSaldo(t);
       if(sd>0){
-        h+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'+
-          '<span style="color:#94a3b8">(−) '+getBanco(t)+(getUltimos(t)?' ...'+getUltimos(t):'')+
-          ' <span style="font-size:11px;color:#64748b">vence '+getPago(t)+'</span></span>'+
+        h+='<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0">'+
+          '<span style="color:#94a3b8">(−) '+getBanco(t)+(getUltimos(t)?' ···'+getUltimos(t):'')+
+          ' <span style="font-size:11px;color:#475569">vence '+getPago(t)+'</span></span>'+
           '<span style="color:#f87171">'+fmt(sd)+'</span>'+
           '</div>';
       }
@@ -620,81 +692,504 @@ function renderFinanzas(){
 
   h+='<div style="border-top:1px solid #60a5fa44;margin:10px 0 8px"></div>'+
     '<div style="display:flex;justify-content:space-between;align-items:center">'+
-    '<span style="font-weight:700">(=) Saldo Conciliado:</span>'+
-    '<span style="color:'+scc+';font-weight:700;font-size:18px">'+fmt(sc)+'</span>'+
+    '<span style="font-weight:700;font-size:14px">(=) Saldo Conciliado</span>'+
+    '<span style="color:'+scc+';font-weight:800;font-size:22px">'+fmt(sc)+'</span>'+
     '</div>'+
     '<div style="text-align:right;font-size:12px;color:'+scc+';margin-top:3px">'+sem+'</div>';
   h+='</div>';
 
   // Alertas
   if(alertas.length>0){
-    h+='<div class="sec" style="margin-top:14px">Alertas activas</div>';
-    alertas.slice(0,5).forEach(function(a){
+    h+='<div style="margin-top:10px">';
+    alertas.slice(0,4).forEach(function(a){
       var c=(a["Severidad"]||"").indexOf("Critica")!==-1?"#f87171":"#fbbf24";
-      h+='<div style="background:'+c+'15;border:1px solid '+c+'33;border-radius:6px;padding:8px 12px;margin-bottom:6px;font-size:12px;color:'+c+'">'+
-        '<strong>'+(a["TipoAlerta"]||a["Tipo Alerta"]||"Alerta")+'</strong> — '+
-        (a["Descripcion"]||a["Descripción"]||"—")+
-        '</div>';
+      h+='<div style="background:'+c+'15;border:1px solid '+c+'33;border-radius:6px;padding:7px 12px;margin-bottom:5px;font-size:12px;color:'+c+'">'+
+        '<strong>'+(a["TipoAlerta"]||"Alerta")+'</strong> — '+(a["Descripcion"]||a["Descripción"]||"—")+'</div>';
     });
+    h+='</div>';
   }
   h+='</div>';
   document.getElementById("fin-conciliacion").innerHTML=h;
+}
 
-  // Panel izquierdo: Cuentas
-  document.getElementById("fin-tcs").innerHTML='<div class="sec">Mis Cuentas</div>'+
-    (cuentas.length===0
-      ? ediv("Sin cuentas — dile al agente para agregar")
-      : cuentas.map(function(c){
-          return '<div style="padding:10px 0;border-bottom:1px solid #1e293b">'+
-            '<div style="display:flex;justify-content:space-between;align-items:center">'+
-            '<span style="font-weight:500">'+getBanco(c)+'</span>'+
-            '<span style="color:#4ade80;font-weight:700">'+fmt(getSaldo(c))+'</span>'+
-            '</div>'+
-            '<div style="font-size:11px;color:#64748b;margin-top:2px">'+getTipo(c)+'</div>'+
-            '</div>';
-        }).join("")
-    );
+// ── PANEL CUENTAS (efectivo/débito/ahorro) ───────────────────
+function renderFinCuentas(cuentas){
+  var allCuentas=DATA.fin.cuentas||[];
+  var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'+
+    '<div class="sec" style="margin:0">Mis Cuentas</div>'+
+    '<button class="fin-add-btn" onclick="openCuentaForm(null)">+ Agregar</button>'+
+    '</div>';
 
-  // Panel derecho: Tarjetas
-  document.getElementById("fin-msi").innerHTML='<div class="sec">Tarjetas de Crédito</div>'+
-    (tarjetas.length===0
-      ? ediv("Sin tarjetas registradas")
-      : tarjetas.map(function(t){
-          var sd=getSaldo(t),lm=getLimite(t),u=lm>0?Math.round(sd/lm*100):0;
-          return '<div style="padding:10px 0;border-bottom:1px solid #1e293b">'+
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">'+
-            '<span style="font-weight:500">'+getBanco(t)+(getUltimos(t)?' ...'+getUltimos(t):'')+'</span>'+
-            '<span style="color:#f87171;font-weight:600">'+fmt(sd)+'</span>'+
-            '</div>'+
-            '<div style="font-size:11px;color:#64748b;margin-bottom:5px">Pago: '+getPago(t)+'</div>'+
-            (lm>0
-              ? '<div style="height:3px;background:#0f172a;border-radius:99px"><div style="height:3px;background:'+(u>80?"#f87171":u>50?"#fbbf24":"#4ade80")+';border-radius:99px;width:'+Math.min(u,100)+'%"></div></div>'+
-                '<div style="font-size:10px;color:#64748b;text-align:right;margin-top:2px">'+u+'% usado</div>'
-              : ''
-            )+
-            '</div>';
-        }).join("")
-    );
+  if(allCuentas.length===0){
+    h+=ediv("Sin cuentas — agrega una con el botón");
+  } else {
+    allCuentas.forEach(function(c,i){
+      var activa=(c["Activa"]||"")!=="No";
+      h+='<div style="padding:10px 0;border-bottom:1px solid #1e293b;opacity:'+(activa?1:.5)+'" >'+
+        '<div style="display:flex;justify-content:space-between;align-items:center">'+
+        '<div>'+
+        '<div style="font-weight:600;font-size:13px">'+getBanco(c)+'</div>'+
+        '<div style="font-size:11px;color:#64748b">'+getTipo(c)+(c["Banco"]&&c["Nombre"]&&c["Banco"]!==c["Nombre"]?" · "+c["Banco"]:"")+'</div>'+
+        '</div>'+
+        '<div style="text-align:right">'+
+        '<div style="color:#4ade80;font-weight:700;font-size:15px">'+fmt(getSaldo(c))+'</div>'+
+        '<div style="display:flex;gap:5px;justify-content:flex-end;margin-top:4px">'+
+        '<button class="fin-icon-btn" onclick="openMovimientoForm(\'cuenta\','+i+')" title="Registrar movimiento">💸</button>'+
+        '<button class="fin-icon-btn" onclick="openCuentaForm('+i+')" title="Editar">✏️</button>'+
+        '<button class="fin-icon-btn" onclick="deleteCuenta('+i+')" title="Eliminar" style="color:#f87171">🗑</button>'+
+        '</div>'+
+        '</div>'+
+        '</div>'+
+        '</div>';
+    });
+  }
+  document.getElementById("fin-tcs").innerHTML=h;
+}
 
-  // Tabla de gastos
+// ── PANEL TARJETAS ───────────────────────────────────────────
+function renderFinTarjetas(tarjetas){
+  var allTcs=DATA.fin.tcs||[];
+  var h='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">'+
+    '<div class="sec" style="margin:0">Tarjetas de Crédito</div>'+
+    '<button class="fin-add-btn" onclick="openTarjetaForm(null)">+ Agregar</button>'+
+    '</div>';
+
+  if(allTcs.length===0){
+    h+=ediv("Sin tarjetas — agrega una con el botón");
+  } else {
+    allTcs.forEach(function(t,i){
+      var sd=getSaldo(t),lm=getLimite(t),u=lm>0?Math.round(sd/lm*100):0;
+      var activa=(t["Activa"]||"")!=="No";
+      var barColor=u>80?"#f87171":u>50?"#fbbf24":"#4ade80";
+      h+='<div style="padding:10px 0;border-bottom:1px solid #1e293b;opacity:'+(activa?1:.5)+'">'+
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start">'+
+        '<div>'+
+        '<div style="font-weight:600;font-size:13px">'+getBanco(t)+(getUltimos(t)?' <span style="font-size:11px;color:#64748b">···'+getUltimos(t)+'</span>':'')+' </div>'+
+        '<div style="font-size:11px;color:#64748b">Pago: '+getPago(t)+(lm?' · Límite: '+fmt(lm):'')+'</div>'+
+        '</div>'+
+        '<div style="text-align:right">'+
+        '<div style="color:#f87171;font-weight:700;font-size:15px">'+fmt(sd)+'</div>'+
+        '<div style="display:flex;gap:5px;justify-content:flex-end;margin-top:4px">'+
+        '<button class="fin-icon-btn" onclick="openMovimientoForm(\'tarjeta\','+i+')" title="Registrar cargo/pago">💳</button>'+
+        '<button class="fin-icon-btn" onclick="openTarjetaForm('+i+')" title="Editar">✏️</button>'+
+        '<button class="fin-icon-btn" onclick="deleteTarjeta('+i+')" title="Eliminar" style="color:#f87171">🗑</button>'+
+        '</div>'+
+        '</div>'+
+        '</div>'+
+        (lm>0?'<div style="height:3px;background:#0f172a;border-radius:99px;margin-top:6px">'+
+        '<div style="height:3px;background:'+barColor+';border-radius:99px;width:'+Math.min(u,100)+'%"></div></div>'+
+        '<div style="font-size:10px;color:#64748b;text-align:right;margin-top:2px">'+u+'% usado</div>':'')+
+        '</div>';
+    });
+  }
+  document.getElementById("fin-msi").innerHTML=h;
+}
+
+// ── GASTOS ───────────────────────────────────────────────────
+function renderFinGastos(gastos){
   document.getElementById("fin-tbody").innerHTML=gastos.length===0?erow(6,"Sin gastos"):
-    gastos.slice().reverse().slice(0,30).map(function(g,i){
+    gastos.slice().reverse().slice(0,50).map(function(g,i){
       var ri=gastos.length-1-i;
-      var concepto=g["Concepto"]||g["concepto"]||"—";
-      var fecha=g["Fecha"]||g["fecha"]||"—";
-      var cat=g["Categoría"]||g["Categoria"]||g["categoria"]||"—";
-      var monto=+(g["Monto"]||g["monto"]||0);
-      var metodo=g["Método de pago"]||g["Metodo de pago"]||g["MetodoPago"]||"—";
       var comp=g["ComprobanteDrive"]||g["Comprobante Drive"]||"";
       return '<tr style="cursor:pointer" onclick="showGastoDetail('+ri+')">'+
-        '<td style="color:#94a3b8">'+fecha+'</td>'+
-        '<td style="font-weight:500">'+concepto+'</td>'+
-        '<td style="color:#94a3b8">'+cat+'</td>'+
-        '<td style="color:#fbbf24;font-weight:500">'+fmt(monto)+'</td>'+
-        '<td style="color:#64748b">'+metodo+'</td>'+
+        '<td style="color:#94a3b8">'+(g["Fecha"]||"—")+'</td>'+
+        '<td style="font-weight:500">'+(g["Concepto"]||"—")+'</td>'+
+        '<td style="color:#94a3b8">'+(g["Categoría"]||g["Categoria"]||"—")+'</td>'+
+        '<td style="color:#fbbf24;font-weight:500">'+fmt(+(g["Monto"]||0))+'</td>'+
+        '<td style="color:#64748b">'+(g["Método de pago"]||g["Metodo de pago"]||"—")+'</td>'+
         '<td>'+(comp?'<a href="'+comp+'" target="_blank" style="color:#60a5fa;font-size:11px">Ver</a>':"—")+'</td>'+
         '</tr>';
     }).join("");
+}
+
+// ════════════════════════════════════════════════════════════
+// MODAL GENÉRICO (reutilizable)
+// ════════════════════════════════════════════════════════════
+function openFinModal(title, bodyHtml, onSave){
+  var existing=document.getElementById("fin-modal");
+  if(existing)existing.remove();
+
+  var overlay=document.createElement("div");
+  overlay.id="fin-modal";
+  overlay.style.cssText="position:fixed;inset:0;background:#0f172acc;z-index:300;display:flex;align-items:center;justify-content:center;padding:16px";
+  overlay.onclick=function(e){if(e.target===overlay)closeFinModal();};
+
+  overlay.innerHTML=
+    '<div style="background:#1e293b;border:1px solid #334155;border-radius:16px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;padding:24px">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">'+
+    '<div style="font-size:17px;font-weight:700">'+title+'</div>'+
+    '<button onclick="closeFinModal()" style="background:transparent;border:none;color:#64748b;font-size:20px;cursor:pointer;line-height:1">×</button>'+
+    '</div>'+
+    '<div id="fin-modal-body">'+bodyHtml+'</div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">'+
+    '<button class="edit-cancel-btn" onclick="closeFinModal()">Cancelar</button>'+
+    '<button class="edit-save-btn" id="fin-modal-save">Guardar</button>'+
+    '</div>'+
+    '</div>';
+
+  document.body.appendChild(overlay);
+  document.getElementById("fin-modal-save").onclick=onSave;
+}
+
+function closeFinModal(){
+  var m=document.getElementById("fin-modal");
+  if(m)m.remove();
+}
+
+// ════════════════════════════════════════════════════════════
+// CRUD CUENTAS (Efectivo / Débito / Ahorro / Inversión)
+// ════════════════════════════════════════════════════════════
+var TIPOS_CUENTA=["Efectivo","Débito","Ahorro","Inversión","Otro"];
+
+function openCuentaForm(idx){
+  var c = idx!==null ? (DATA.fin.cuentas||[])[idx] : null;
+  var nombre=c?getBanco(c):"";
+  var tipo=c?getTipo(c):"Efectivo";
+  var saldo=c?getSaldo(c):0;
+  var banco=c?(c["Banco"]||""):"";
+  var activa=c?(c["Activa"]||"Sí"):"Sí";
+
+  var body=
+    '<div class="edit-form">'+
+    '<div class="edit-row">'+
+    '<div class="edit-field"><label class="edit-label">Nombre / Alias</label>'+
+    '<input class="edit-input" id="fc-nombre" value="'+escHtml(nombre)+'" placeholder="Ej: BBVA Nómina"/></div>'+
+    '<div class="edit-field"><label class="edit-label">Tipo</label>'+
+    '<select class="edit-select" id="fc-tipo">'+TIPOS_CUENTA.map(function(t){return'<option'+(t===tipo?' selected':'')+'>'+t+'</option>';}).join("")+'</select></div>'+
+    '</div>'+
+    '<div class="edit-row">'+
+    '<div class="edit-field"><label class="edit-label">Banco / Institución</label>'+
+    '<input class="edit-input" id="fc-banco" value="'+escHtml(banco)+'" placeholder="Ej: BBVA, Banamex..."/></div>'+
+    '<div class="edit-field"><label class="edit-label">Saldo actual (MXN)</label>'+
+    '<input class="edit-input" id="fc-saldo" type="number" value="'+saldo+'" placeholder="0"/></div>'+
+    '</div>'+
+    '<div class="edit-field"><label class="edit-label">Activa</label>'+
+    '<select class="edit-select" id="fc-activa"><option'+(activa!=="No"?' selected':'')+'>Sí</option><option'+(activa==="No"?' selected':'')+'>No</option></select></div>'+
+    (idx!==null?'<div style="font-size:11px;color:#475569;margin-top:4px">Cambiar el saldo aquí edita el registro directamente. Para registrar un movimiento usa 💸.</div>':'')+
+    '</div>';
+
+  openFinModal(idx!==null?"✏️ Editar Cuenta":"➕ Nueva Cuenta", body, function(){
+    var n=document.getElementById("fc-nombre").value.trim();
+    var ti=document.getElementById("fc-tipo").value;
+    var ba=document.getElementById("fc-banco").value.trim();
+    var sa=+(document.getElementById("fc-saldo").value)||0;
+    var ac=document.getElementById("fc-activa").value;
+    if(!n){showToast("El nombre es requerido");return;}
+
+    // Columnas: Nombre | Tipo | Banco | SaldoActual | Activa
+    var row=[n, ti, ba, sa, ac];
+
+    if(idx===null){
+      // NUEVA — append al Sheet
+      requestFinToken(function(){
+        appendRow(CONFIG.SHEETS.finanzas, "Cuentas", row, function(){
+          // Actualizar DATA local
+          DATA.fin.cuentas.push({Nombre:n,Tipo:ti,Banco:ba,SaldoActual:sa,Activa:ac});
+          closeFinModal();
+          renderFinanzas();
+          showToast("Cuenta agregada ✓");
+        });
+      });
+    } else {
+      // EDITAR — update fila en Sheet
+      var c=DATA.fin.cuentas[idx];
+      var rowNum=c._rowNum;
+      if(!rowNum){
+        // Sin _rowNum: actualizar solo en memoria con advertencia
+        Object.assign(c,{Nombre:n,Tipo:ti,Banco:ba,SaldoActual:sa,Activa:ac});
+        closeFinModal();renderFinanzas();
+        showToast("Actualizado en memoria (recarga para sincronizar Sheet)");
+        return;
+      }
+      requestFinToken(function(){
+        updateRow(CONFIG.SHEETS.finanzas, "Cuentas", rowNum, row, function(){
+          Object.assign(c,{Nombre:n,Tipo:ti,Banco:ba,SaldoActual:sa,Activa:ac});
+          closeFinModal();renderFinanzas();
+          showToast("Cuenta actualizada ✓");
+        });
+      });
+    }
+  });
+}
+
+function deleteCuenta(idx){
+  var c=(DATA.fin.cuentas||[])[idx];
+  if(!c)return;
+  if(!confirm("¿Eliminar la cuenta '"+getBanco(c)+"'? Esta acción no se puede deshacer."))return;
+  requestFinToken(function(){
+    if(c._rowNum){
+      clearRow(CONFIG.SHEETS.finanzas,"Cuentas",c._rowNum,5,function(){
+        DATA.fin.cuentas.splice(idx,1);
+        renderFinanzas();
+        showToast("Cuenta eliminada ✓");
+      });
+    } else {
+      DATA.fin.cuentas.splice(idx,1);
+      renderFinanzas();
+      showToast("Eliminado localmente");
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// CRUD TARJETAS DE CRÉDITO
+// ════════════════════════════════════════════════════════════
+var BANCOS_COMUNES=["BBVA","Citibanamex","Santander","HSBC","Banorte","Scotiabank","Inbursa","American Express","Liverpool","Otro"];
+
+function openTarjetaForm(idx){
+  var t=idx!==null?(DATA.fin.tcs||[])[idx]:null;
+  var banco=t?getBanco(t):"";
+  var ultimos=t?getUltimos(t):"";
+  var saldo=t?getSaldo(t):0;
+  var limite=t?getLimite(t):0;
+  var fechaPago=t?getPago(t):"";
+  var activa=t?(t["Activa"]||"Sí"):"Sí";
+
+  var body=
+    '<div class="edit-form">'+
+    '<div class="edit-row">'+
+    '<div class="edit-field"><label class="edit-label">Banco</label>'+
+    '<input class="edit-input" id="ft-banco" list="ft-bancos-list" value="'+escHtml(banco)+'" placeholder="BBVA, Santander..."/>'+
+    '<datalist id="ft-bancos-list">'+BANCOS_COMUNES.map(function(b){return'<option value="'+b+'">';}).join("")+'</datalist></div>'+
+    '<div class="edit-field"><label class="edit-label">Últimos 4 dígitos</label>'+
+    '<input class="edit-input" id="ft-ultimos" type="text" maxlength="4" value="'+escHtml(ultimos)+'" placeholder="1234"/></div>'+
+    '</div>'+
+    '<div class="edit-row">'+
+    '<div class="edit-field"><label class="edit-label">Saldo actual / Deuda (MXN)</label>'+
+    '<input class="edit-input" id="ft-saldo" type="number" value="'+saldo+'" placeholder="0"/></div>'+
+    '<div class="edit-field"><label class="edit-label">Límite de crédito (MXN)</label>'+
+    '<input class="edit-input" id="ft-limite" type="number" value="'+limite+'" placeholder="0"/></div>'+
+    '</div>'+
+    '<div class="edit-row">'+
+    '<div class="edit-field"><label class="edit-label">Fecha límite de pago</label>'+
+    '<input class="edit-input" id="ft-fechapago" type="date" value="'+escHtml(fechaPago)+'"/></div>'+
+    '<div class="edit-field"><label class="edit-label">Activa</label>'+
+    '<select class="edit-select" id="ft-activa"><option'+(activa!=="No"?' selected':'')+'>Sí</option><option'+(activa==="No"?' selected':'')+'>No</option></select></div>'+
+    '</div>'+
+    '</div>';
+
+  openFinModal(idx!==null?"✏️ Editar Tarjeta":"💳 Nueva Tarjeta de Crédito", body, function(){
+    var ba=document.getElementById("ft-banco").value.trim();
+    var ul=document.getElementById("ft-ultimos").value.trim();
+    var sa=+(document.getElementById("ft-saldo").value)||0;
+    var lm=+(document.getElementById("ft-limite").value)||0;
+    var fp=document.getElementById("ft-fechapago").value;
+    var ac=document.getElementById("ft-activa").value;
+    if(!ba){showToast("El banco es requerido");return;}
+
+    // Columnas: Banco | Ultimos4 | SaldoActual | LimiteCredito | FechaLimitePago | Activa
+    var row=[ba, ul, sa, lm, fp, ac];
+
+    if(idx===null){
+      requestFinToken(function(){
+        appendRow(CONFIG.SHEETS.finanzas,"Tarjetas",row,function(){
+          DATA.fin.tcs.push({Banco:ba,Ultimos4:ul,SaldoActual:sa,LimiteCredito:lm,FechaLimitePago:fp,Activa:ac});
+          closeFinModal();renderFinanzas();
+          showToast("Tarjeta agregada ✓");
+        });
+      });
+    } else {
+      var tc=DATA.fin.tcs[idx];
+      var rowNum=tc._rowNum;
+      if(!rowNum){
+        Object.assign(tc,{Banco:ba,Ultimos4:ul,SaldoActual:sa,LimiteCredito:lm,FechaLimitePago:fp,Activa:ac});
+        closeFinModal();renderFinanzas();
+        showToast("Actualizado en memoria");return;
+      }
+      requestFinToken(function(){
+        updateRow(CONFIG.SHEETS.finanzas,"Tarjetas",rowNum,row,function(){
+          Object.assign(tc,{Banco:ba,Ultimos4:ul,SaldoActual:sa,LimiteCredito:lm,FechaLimitePago:fp,Activa:ac});
+          closeFinModal();renderFinanzas();
+          showToast("Tarjeta actualizada ✓");
+        });
+      });
+    }
+  });
+}
+
+function deleteTarjeta(idx){
+  var t=(DATA.fin.tcs||[])[idx];
+  if(!t)return;
+  if(!confirm("¿Eliminar tarjeta "+getBanco(t)+(getUltimos(t)?" ···"+getUltimos(t):"")+"?"))return;
+  requestFinToken(function(){
+    if(t._rowNum){
+      clearRow(CONFIG.SHEETS.finanzas,"Tarjetas",t._rowNum,6,function(){
+        DATA.fin.tcs.splice(idx,1);
+        renderFinanzas();showToast("Tarjeta eliminada ✓");
+      });
+    } else {
+      DATA.fin.tcs.splice(idx,1);
+      renderFinanzas();showToast("Eliminado localmente");
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+// MOVIMIENTOS — afectan saldo y conciliación
+// ════════════════════════════════════════════════════════════
+// tipo: 'cuenta' | 'tarjeta'
+// accountIdx: índice en DATA.fin.cuentas o DATA.fin.tcs
+
+var CATEGORIAS_GASTO=["Alimentación","Transporte","Servicios","Salud","Educación","Entretenimiento","Ropa","Hogar","Remodelación","Viajes","Suscripciones","Otro"];
+var TIPOS_MOV_CUENTA=["Ingreso","Retiro","Transferencia entrada","Transferencia salida","Ajuste"];
+var TIPOS_MOV_TC=["Cargo","Pago de tarjeta","Abono parcial","Ajuste"];
+
+function openMovimientoForm(tipo, accountIdx){
+  var isCuenta = tipo==="cuenta";
+  var cuenta = isCuenta ? (DATA.fin.cuentas||[])[accountIdx] : (DATA.fin.tcs||[])[accountIdx];
+  if(!cuenta)return;
+  var nombreCuenta = getBanco(cuenta)+(getUltimos(cuenta)?" ···"+getUltimos(cuenta):"");
+  var saldoActual = getSaldo(cuenta);
+  var tiposMovs = isCuenta ? TIPOS_MOV_CUENTA : TIPOS_MOV_TC;
+
+  var body=
+    '<div class="edit-form">'+
+    '<div style="background:#0f172a;border-radius:8px;padding:10px 14px;margin-bottom:4px;border:1px solid #334155">'+
+    '<div style="font-size:12px;color:#64748b">Cuenta</div>'+
+    '<div style="font-weight:600;font-size:14px">'+nombreCuenta+'</div>'+
+    '<div style="font-size:12px;color:'+(isCuenta?"#4ade80":"#f87171")+'">Saldo actual: '+fmt(saldoActual)+'</div>'+
+    '</div>'+
+    '<div class="edit-row">'+
+    '<div class="edit-field"><label class="edit-label">Tipo de movimiento</label>'+
+    '<select class="edit-select" id="fm-tipo" onchange="updateMovSign()">'+tiposMovs.map(function(t,i){return'<option value="'+t+'"'+(i===0?' selected':'')+'>'+t+'</option>';}).join("")+'</select></div>'+
+    '<div class="edit-field"><label class="edit-label">Fecha</label>'+
+    '<input class="edit-input" id="fm-fecha" type="date" value="'+hoy()+'"/></div>'+
+    '</div>'+
+    '<div class="edit-row">'+
+    '<div class="edit-field"><label class="edit-label">Concepto / Descripción</label>'+
+    '<input class="edit-input" id="fm-concepto" placeholder="Ej: Depósito nómina, Pago Netflix..."/></div>'+
+    '<div class="edit-field"><label class="edit-label">Monto (MXN, positivo)</label>'+
+    '<input class="edit-input" id="fm-monto" type="number" min="0" step="0.01" value="" placeholder="0.00"/></div>'+
+    '</div>'+
+    '<div class="edit-row">'+
+    '<div class="edit-field"><label class="edit-label">Categoría</label>'+
+    '<select class="edit-select" id="fm-cat">'+CATEGORIAS_GASTO.map(function(c){return'<option>'+c+'</option>';}).join("")+'</select></div>'+
+    '<div class="edit-field"><label class="edit-label">Notas (opcional)</label>'+
+    '<input class="edit-input" id="fm-notas" placeholder=""/></div>'+
+    '</div>'+
+    '<div id="fm-preview" style="background:#0f172a;border-radius:8px;padding:10px 14px;border:1px solid #334155;font-size:13px;display:none">'+
+    '<div style="color:#64748b;font-size:11px;margin-bottom:3px">Nuevo saldo estimado</div>'+
+    '<div id="fm-preview-val" style="font-weight:700;font-size:18px"></div>'+
+    '</div>'+
+    '</div>';
+
+  openFinModal("💸 Registrar Movimiento", body, function(){
+    var tipoMov=document.getElementById("fm-tipo").value;
+    var fecha=document.getElementById("fm-fecha").value;
+    var concepto=document.getElementById("fm-concepto").value.trim();
+    var monto=Math.abs(+(document.getElementById("fm-monto").value)||0);
+    var cat=document.getElementById("fm-cat").value;
+    var notas=document.getElementById("fm-notas").value.trim();
+
+    if(!concepto){showToast("El concepto es requerido");return;}
+    if(monto<=0){showToast("El monto debe ser mayor a 0");return;}
+    if(!fecha){showToast("La fecha es requerida");return;}
+
+    // Calcular nuevo saldo
+    var delta=calcDelta(tipoMov, monto, isCuenta);
+    var nuevoSaldo=saldoActual+delta;
+
+    // Fila de movimiento: Fecha | Concepto | Tipo | Monto | CuentaOrigen | Categoria | NuevoSaldo | Notas
+    var movRow=[fecha, concepto, tipoMov, monto, nombreCuenta, cat, nuevoSaldo, notas];
+
+    // Fila actualizada de la cuenta/tarjeta
+    var updatedSaldoRow = buildSaldoUpdateRow(cuenta, nuevoSaldo, isCuenta);
+
+    requestFinToken(function(){
+      // 1. Guardar en Movimientos
+      appendRow(CONFIG.SHEETS.finanzas,"Movimientos",movRow,function(){
+        // 2. También guardar en Gastos si es un cargo/retiro
+        if(isGasto(tipoMov)){
+          var gastoRow=[fecha,concepto,cat,monto,tipoMov,nombreCuenta,"","",notas];
+          appendRow(CONFIG.SHEETS.finanzas,"Gastos",gastoRow,function(){});
+          DATA.fin.gastos.push({Fecha:fecha,Concepto:concepto,"Categoría":cat,Monto:monto,"Método de pago":tipoMov,"Banco/TC":nombreCuenta,Notas:notas});
+        }
+        // 3. Actualizar saldo en Sheet y en DATA local
+        if(cuenta._rowNum&&updatedSaldoRow){
+          var sheetTab=isCuenta?"Cuentas":"Tarjetas";
+          updateRow(CONFIG.SHEETS.finanzas,sheetTab,cuenta._rowNum,updatedSaldoRow,function(){});
+        }
+        // Actualizar local
+        if(isCuenta){DATA.fin.cuentas[accountIdx].SaldoActual=nuevoSaldo;}
+        else{DATA.fin.tcs[accountIdx].SaldoActual=nuevoSaldo;}
+        // Registrar en movimientos locales
+        DATA.fin.movimientos=DATA.fin.movimientos||[];
+        DATA.fin.movimientos.push({Fecha:fecha,Concepto:concepto,Tipo:tipoMov,Monto:monto,Cuenta:nombreCuenta,Categoria:cat,NuevoSaldo:nuevoSaldo,Notas:notas});
+
+        closeFinModal();
+        renderFinanzas();
+        showToast("Movimiento registrado ✓  Nuevo saldo: "+fmt(nuevoSaldo));
+      });
+    });
+  });
+
+  // Actualizar preview de saldo en tiempo real
+  setTimeout(function(){
+    var montoInput=document.getElementById("fm-monto");
+    var tipoSel=document.getElementById("fm-tipo");
+    if(!montoInput||!tipoSel)return;
+    function updatePreview(){
+      var m=Math.abs(+(montoInput.value)||0);
+      var ti=tipoSel.value;
+      if(m>0){
+        var d=calcDelta(ti,m,isCuenta);
+        var ns=saldoActual+d;
+        var preview=document.getElementById("fm-preview");
+        var previewVal=document.getElementById("fm-preview-val");
+        if(preview&&previewVal){
+          preview.style.display="block";
+          previewVal.textContent=fmt(ns);
+          previewVal.style.color=isCuenta?(ns>=0?"#4ade80":"#f87171"):(ns<=saldoActual?"#4ade80":"#f87171");
+        }
+      }
+    }
+    montoInput.addEventListener("input",updatePreview);
+    tipoSel.addEventListener("change",updatePreview);
+  },100);
+}
+
+// Calcula cuánto cambia el saldo según el tipo de movimiento
+function calcDelta(tipoMov, monto, isCuenta){
+  if(isCuenta){
+    // Para cuentas: ingresos suman, retiros/salidas restan
+    var positivos=["Ingreso","Transferencia entrada"];
+    return positivos.indexOf(tipoMov)!==-1 ? +monto : -monto;
+  } else {
+    // Para tarjetas: cargo aumenta deuda, pago/abono reduce deuda
+    var pagos=["Pago de tarjeta","Abono parcial"];
+    return pagos.indexOf(tipoMov)!==-1 ? -monto : +monto;
+  }
+}
+
+function isGasto(tipoMov){
+  return ["Retiro","Transferencia salida","Cargo","Ajuste"].indexOf(tipoMov)!==-1;
+}
+
+function buildSaldoUpdateRow(cuenta, nuevoSaldo, isCuenta){
+  if(isCuenta){
+    return [cuenta["Nombre"]||cuenta["Nombre"]||"", cuenta["Tipo"]||"", cuenta["Banco"]||"", nuevoSaldo, cuenta["Activa"]||"Sí"];
+  } else {
+    return [cuenta["Banco"]||"", cuenta["Ultimos4"]||"", nuevoSaldo, cuenta["LimiteCredito"]||0, cuenta["FechaLimitePago"]||"", cuenta["Activa"]||"Sí"];
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// RECARGAR datos de finanzas desde Sheets
+// ════════════════════════════════════════════════════════════
+function reloadFinanzas(){
+  showToast("Recargando datos...");
+  Promise.all([
+    fetchSheetWithRows(CONFIG.SHEETS.finanzas,"Gastos"),
+    fetchSheetWithRows(CONFIG.SHEETS.finanzas,"Tarjetas"),
+    fetchSheetWithRows(CONFIG.SHEETS.finanzas,"MSIActivos"),
+    fetchSheetWithRows(CONFIG.SHEETS.finanzas,"Cuentas"),
+    fetchSheetWithRows(CONFIG.SHEETS.finanzas,"Movimientos"),
+    fetchSheetWithRows(CONFIG.SHEETS.finanzas,"AlertasFinancieras")
+  ]).then(function(res){
+    DATA.fin={gastos:res[0],tcs:res[1],msi:res[2],cuentas:res[3],movimientos:res[4],alertas:res[5]};
+    renderFinanzas();
+    showToast("Finanzas actualizadas ✓");
+  });
 }
 
 // COMPRAS

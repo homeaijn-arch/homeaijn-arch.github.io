@@ -160,6 +160,20 @@ tr:hover td{background:#1e293b44}
 .edit-cancel-btn:hover{background:#1e293b;color:#94a3b8}
 .edit-note{font-size:11px;color:#475569;text-align:center;margin-top:4px}
 
+/* ── FINANZAS BOTONES ── */
+.fin-add-btn{
+  background:#1d4ed8;color:#fff;border:none;border-radius:6px;
+  padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;
+  transition:background .15s;
+}
+.fin-add-btn:hover{background:#2563eb}
+.fin-icon-btn{
+  background:transparent;border:none;cursor:pointer;
+  font-size:14px;padding:2px 5px;border-radius:4px;
+  opacity:.7;transition:opacity .15s,background .15s;
+}
+.fin-icon-btn:hover{opacity:1;background:#334155}
+
 @media(max-width:640px){
   .two-col{grid-template-columns:1fr}
   .metric-grid{grid-template-columns:1fr 1fr}
@@ -304,7 +318,10 @@ tr:hover td{background:#1e293b44}
 
     <!-- FINANZAS -->
     <div class="page" id="page-finanzas">
-      <div style="font-size:20px;font-weight:700;margin-bottom:14px">💰 Finanzas</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-size:20px;font-weight:700">💰 Finanzas</div>
+        <button onclick="reloadFinanzas()" style="background:transparent;border:1px solid #334155;border-radius:6px;color:#64748b;cursor:pointer;font-size:12px;padding:5px 12px">↺ Recargar</button>
+      </div>
       <div class="metric-grid" id="fin-metrics"></div>
       <div id="fin-conciliacion"></div>
       <div class="two-col">
