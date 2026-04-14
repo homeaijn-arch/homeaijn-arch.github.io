@@ -58,7 +58,6 @@ tr:hover td{background:#1e293b44}
 .tab-nav{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
 .tab-btn{padding:5px 12px;background:transparent;border:1px solid #334155;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:12px}
 .tab-btn.active{background:#1e293b;border-color:#60a5fa;color:#60a5fa;font-weight:500}
-.sub-row{background:#0f172a33;border-left:2px solid #334155;margin:2px 0 2px 8px;padding:4px 8px;border-radius:0 4px 4px 0;font-size:11px;color:#94a3b8;display:flex;justify-content:space-between;align-items:center}
 .det-header{margin-bottom:16px}
 .det-back{font-size:12px;color:#64748b;cursor:pointer;margin-bottom:8px}
 .det-back:hover{color:#94a3b8}
@@ -72,58 +71,102 @@ tr:hover td{background:#1e293b44}
 .det-section{margin-bottom:16px}
 .det-section-title{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
 .det-notes{font-size:13px;color:#94a3b8;background:#0f172a;border-radius:8px;padding:10px 12px;line-height:1.6}
-/* Edit button */
-.btn-edit-row{padding:2px 7px;font-size:11px;background:#1e3a5f;color:#60a5fa;border:none;border-radius:4px;cursor:pointer}
-.btn-edit-row:hover{background:#1d4ed8;color:#fff}
-.btn-add-row{padding:4px 10px;font-size:11px;background:transparent;color:#64748b;border:1px dashed #334155;border-radius:6px;cursor:pointer}
-.btn-add-row:hover{background:#1e293b;color:#f1f5f9;border-color:#60a5fa}
-/* Modal */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;align-items:center;justify-content:center;padding:16px}
-.modal-overlay.open{display:flex}
-.modal-box{background:#1e293b;border:1px solid #334155;border-radius:14px;padding:24px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
-.modal-title{font-size:15px;font-weight:700;margin-bottom:16px}
-.field-group{margin-bottom:11px}
-.field-label{font-size:11px;color:#94a3b8;margin-bottom:4px;display:block}
-.field-input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:7px 10px;color:#f1f5f9;font-size:13px}
-.field-input:focus{outline:none;border-color:#3b82f6}
-select.field-input option{background:#1e293b}
-/* Date picker custom */
-.date-wrap{position:relative}
-.date-display{width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;padding:7px 10px;color:#f1f5f9;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none}
-.date-display:hover{border-color:#3b82f6}
-.date-display .cal-icon{font-size:14px;opacity:.6}
-.cal-popup{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:600;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px;box-shadow:0 8px 32px rgba(0,0,0,.5);min-width:260px}
-.cal-popup.open{display:block}
-.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.cal-nav{background:transparent;border:none;color:#94a3b8;font-size:16px;cursor:pointer;padding:2px 8px;border-radius:4px}
-.cal-nav:hover{background:#334155;color:#f1f5f9}
-.cal-month-label{font-size:13px;font-weight:600;color:#f1f5f9}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
-.cal-day-name{font-size:10px;color:#64748b;text-align:center;padding:2px 0;font-weight:500}
-.cal-day{font-size:12px;text-align:center;padding:5px 2px;border-radius:4px;cursor:pointer;color:#94a3b8;border:1px solid transparent}
-.cal-day:hover:not(.empty):not(.other){background:#334155;color:#f1f5f9}
-.cal-day.today{color:#60a5fa;font-weight:700}
-.cal-day.selected{background:#1d4ed8;color:#fff;border-color:#3b82f6}
-.cal-day.other{color:#334155;cursor:default}
-.cal-day.empty{cursor:default}
-.cal-footer{display:flex;justify-content:space-between;margin-top:10px;gap:6px}
-.cal-clear{font-size:11px;background:transparent;border:1px solid #334155;border-radius:5px;color:#64748b;padding:4px 10px;cursor:pointer}
-.cal-clear:hover{color:#f87171;border-color:#f87171}
-.cal-today-btn{font-size:11px;background:#1d4ed8;border:none;border-radius:5px;color:#fff;padding:4px 10px;cursor:pointer}
-.cal-today-btn:hover{background:#2563eb}
-.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
-.btn-save{padding:6px 16px;background:#166534;color:#4ade80;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500}
-.btn-save:hover{background:#16a34a}
-.btn-cancel{padding:6px 14px;background:#3b1f1f;color:#f87171;border:none;border-radius:6px;cursor:pointer;font-size:13px}
-.btn-cancel:hover{background:#7f1d1d}
-/* Toast */
-.toast{position:fixed;bottom:20px;right:20px;padding:10px 16px;border-radius:8px;font-size:13px;z-index:999;opacity:0;transform:translateY(8px);transition:.3s;pointer-events:none;font-weight:500}
-.toast.show{opacity:1;transform:translateY(0)}
-.toast.ok{background:#166534;color:#4ade80}
-.toast.err{background:#7f1d1d;color:#fca5a5}
-/* OAuth status */
-.oauth-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:4px;vertical-align:middle}
-@media(max-width:640px){.two-col{grid-template-columns:1fr}.metric-grid{grid-template-columns:1fr 1fr}.det-grid{grid-template-columns:1fr}}
+
+/* ── TREEVIEW ── */
+.tree-container{display:flex;flex-direction:column;gap:2px}
+.tree-task-row{
+  display:flex;align-items:center;gap:8px;
+  background:#1e293b;
+  border:1px solid #334155;
+  border-radius:8px;
+  padding:10px 12px;
+  transition:background .15s;
+}
+.tree-task-row:hover{background:#263348}
+.tree-toggle{
+  background:transparent;border:none;color:#60a5fa;
+  cursor:pointer;font-size:11px;padding:2px 4px;
+  border-radius:4px;flex-shrink:0;line-height:1;
+  transition:background .15s;
+}
+.tree-toggle:hover{background:#1d4ed822}
+.tree-toggle-placeholder{display:inline-block;width:20px;flex-shrink:0}
+.tree-task-name{
+  font-size:13px;font-weight:500;color:#e2e8f0;
+  cursor:pointer;
+}
+.tree-task-name:hover{color:#60a5fa;text-decoration:underline}
+.tree-edit-btn{
+  background:transparent;border:none;cursor:pointer;
+  font-size:13px;padding:2px 5px;border-radius:4px;
+  opacity:.6;transition:opacity .15s;flex-shrink:0;
+}
+.tree-edit-btn:hover{opacity:1;background:#334155}
+
+/* Subtareas */
+.tree-subs-container{
+  margin-left:28px;
+  border-left:2px solid #334155;
+  padding-left:12px;
+  display:flex;flex-direction:column;gap:2px;
+  margin-bottom:2px;
+}
+.tree-sub-row{
+  display:flex;align-items:center;gap:8px;
+  background:#0f172a;
+  border:1px solid #1e293b;
+  border-radius:6px;
+  padding:7px 10px;
+  transition:background .15s;
+}
+.tree-sub-row:hover{background:#1e293b66}
+.tree-sub-name{font-size:12px;color:#94a3b8;flex:1;min-width:0}
+.tree-sub-done{text-decoration:line-through;color:#475569}
+
+/* ── EDIT FORMS ── */
+.edit-form{display:flex;flex-direction:column;gap:12px}
+.edit-field{display:flex;flex-direction:column;gap:4px}
+.edit-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.edit-label{font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.edit-input{
+  background:#0f172a;border:1px solid #334155;border-radius:6px;
+  color:#f1f5f9;padding:8px 10px;font-size:13px;
+  transition:border-color .15s;
+}
+.edit-input:focus{outline:none;border-color:#60a5fa}
+.edit-select{
+  background:#0f172a;border:1px solid #334155;border-radius:6px;
+  color:#f1f5f9;padding:8px 10px;font-size:13px;cursor:pointer;
+}
+.edit-select:focus{outline:none;border-color:#60a5fa}
+.edit-textarea{
+  background:#0f172a;border:1px solid #334155;border-radius:6px;
+  color:#f1f5f9;padding:8px 10px;font-size:13px;resize:vertical;
+  line-height:1.5;
+}
+.edit-textarea:focus{outline:none;border-color:#60a5fa}
+.edit-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+.edit-save-btn{
+  background:#1d4ed8;color:#fff;border:none;
+  border-radius:6px;padding:8px 16px;font-size:13px;
+  font-weight:600;cursor:pointer;transition:background .15s;
+}
+.edit-save-btn:hover{background:#2563eb}
+.edit-cancel-btn{
+  background:transparent;color:#64748b;
+  border:1px solid #334155;border-radius:6px;
+  padding:8px 16px;font-size:13px;cursor:pointer;
+}
+.edit-cancel-btn:hover{background:#1e293b;color:#94a3b8}
+.edit-note{font-size:11px;color:#475569;text-align:center;margin-top:4px}
+
+@media(max-width:640px){
+  .two-col{grid-template-columns:1fr}
+  .metric-grid{grid-template-columns:1fr 1fr}
+  .det-grid{grid-template-columns:1fr}
+  .edit-row{grid-template-columns:1fr}
+  .tree-subs-container{margin-left:16px;padding-left:8px}
+}
 </style>
 </head>
 <body>
@@ -153,21 +196,6 @@ select.field-input option{background:#1e293b}
   <div id="detail-content" style="background:#1e293b;border:1px solid #334155;border-radius:16px;width:100%;max-width:500px;max-height:calc(100vh - 32px);overflow-y:auto;padding:24px"></div>
 </div>
 
-<!-- MODAL EDICION -->
-<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
-  <div class="modal-box">
-    <div class="modal-title" id="modal-title">Editar</div>
-    <div id="modal-fields"></div>
-    <div class="modal-actions">
-      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
-      <button class="btn-save" onclick="saveModal()">💾 Guardar</button>
-    </div>
-  </div>
-</div>
-
-<!-- TOAST -->
-<div class="toast" id="toast"></div>
-
 <!-- APP -->
 <div id="app">
   <nav class="navbar">
@@ -179,7 +207,6 @@ select.field-input option{background:#1e293b}
     <button class="nav-btn" onclick="showPage('compras',this)">🛍️ Compras</button>
     <button class="nav-btn" onclick="showPage('nutricion',this)">🥗 Nutricion</button>
     <div class="nav-right">
-      <span id="oauth-status" title="Sin permisos de escritura" style="font-size:10px;color:#64748b"></span>
       <img class="nav-avatar" id="nav-avatar" src="" alt=""/>
       <span class="nav-user" id="nav-user"></span>
       <button class="logout-btn" onclick="logout()">Salir</button>
@@ -204,10 +231,7 @@ select.field-input option{background:#1e293b}
 
     <!-- REMODELACION -->
     <div class="page" id="page-remodelacion">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div style="font-size:20px;font-weight:700">🔨 Remodelacion</div>
-        <button class="btn-add-row" onclick="openAddModal('remo')">+ Agregar proyecto</button>
-      </div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:14px">🔨 Remodelacion</div>
       <div class="metric-grid" id="remo-metrics"></div>
       <div class="card">
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
@@ -221,18 +245,15 @@ select.field-input option{background:#1e293b}
           </select>
         </div>
         <div class="tbl-wrap">
-          <table><thead><tr><th>Area</th><th>Proyecto</th><th>Etapa</th><th>Estado</th><th>Prioridad</th><th>Presupuesto</th><th>Pagado</th><th>Contratista</th><th></th></tr></thead>
-          <tbody id="remo-tbody"><tr><td colspan="9" class="loading"><span class="spinner"></span>Cargando...</td></tr></tbody></table>
+          <table><thead><tr><th>Area</th><th>Proyecto</th><th>Etapa</th><th>Estado</th><th>Prioridad</th><th>Presupuesto</th><th>Pagado</th><th>Contratista</th></tr></thead>
+          <tbody id="remo-tbody"><tr><td colspan="8" class="loading"><span class="spinner"></span>Cargando...</td></tr></tbody></table>
         </div>
       </div>
     </div>
 
     <!-- HOGAR -->
     <div class="page" id="page-hogar">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div style="font-size:20px;font-weight:700">🏡 Hogar</div>
-        <button class="btn-add-row" onclick="openAddModal('tareas')">+ Agregar tarea</button>
-      </div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:14px">🏡 Hogar</div>
       <div class="metric-grid" id="hogar-metrics"></div>
       <div class="tab-nav">
         <button class="tab-btn active" onclick="showHogarTab('tareas',this)">Tareas</button>
@@ -241,47 +262,49 @@ select.field-input option{background:#1e293b}
         <button class="tab-btn" onclick="showHogarTab('mascotas',this)">Mascotas</button>
         <button class="tab-btn" onclick="showHogarTab('tramites',this)">Tramites</button>
       </div>
+
+      <!-- TAB TAREAS — TREEVIEW -->
       <div id="hogar-tareas">
         <div class="card">
-          <div class="tbl-wrap">
-            <table><thead><tr><th>Categoria</th><th>Tarea</th><th>Prioridad</th><th>Estado</th><th>Asignado</th><th>Fecha limite</th><th></th></tr></thead>
-            <tbody id="hogar-tareas-tbody"><tr><td colspan="7" class="loading"><span class="spinner"></span>Cargando...</td></tr></tbody></table>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="font-size:11px;color:#64748b">Click en ▶ para expandir subtareas · ✏️ para editar</div>
+            <div style="display:flex;gap:6px">
+              <button onclick="expandAllTrees()" style="background:transparent;border:1px solid #334155;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:11px;padding:3px 8px">Expandir todo</button>
+              <button onclick="collapseAllTrees()" style="background:transparent;border:1px solid #334155;border-radius:6px;color:#94a3b8;cursor:pointer;font-size:11px;padding:3px 8px">Colapsar todo</button>
+            </div>
+          </div>
+          <div class="tree-container" id="hogar-tareas-tree">
+            <div class="loading"><span class="spinner"></span>Cargando...</div>
           </div>
         </div>
-        <div class="card">
-          <div class="sec">Subtareas pendientes</div>
-          <div id="hogar-subtareas-list"><div class="loading"><span class="spinner"></span></div></div>
-        </div>
       </div>
+
       <div id="hogar-calle" style="display:none">
         <div class="card" id="hogar-calle-content"><div class="loading"><span class="spinner"></span></div></div>
       </div>
       <div id="hogar-salud" style="display:none">
         <div class="card"><div class="tbl-wrap">
-          <table><thead><tr><th>Miembro</th><th>Tipo</th><th>Descripcion</th><th>Doctor</th><th>Fecha</th><th>Proxima cita</th><th></th></tr></thead>
-          <tbody id="hogar-salud-tbody"></tbody></table>
+          <table><thead><tr><th>Miembro</th><th>Tipo</th><th>Descripcion</th><th>Doctor</th><th>Fecha</th><th>Proxima cita</th></tr></thead>
+          <tbody id="hogar-salud-tbody"><tr><td colspan="6" class="empty">Sin registros</td></tr></tbody></table>
         </div></div>
       </div>
       <div id="hogar-mascotas" style="display:none">
         <div class="card"><div class="tbl-wrap">
-          <table><thead><tr><th>Mascota</th><th>Tipo</th><th>Descripcion</th><th>Veterinario</th><th>Fecha</th><th>Proxima vacuna</th><th></th></tr></thead>
-          <tbody id="hogar-mascotas-tbody"></tbody></table>
+          <table><thead><tr><th>Mascota</th><th>Tipo</th><th>Descripcion</th><th>Veterinario</th><th>Fecha</th><th>Proxima vacuna</th></tr></thead>
+          <tbody id="hogar-mascotas-tbody"><tr><td colspan="6" class="empty">Sin registros</td></tr></tbody></table>
         </div></div>
       </div>
       <div id="hogar-tramites" style="display:none">
         <div class="card"><div class="tbl-wrap">
-          <table><thead><tr><th>Tipo</th><th>Descripcion</th><th>Responsable</th><th>Estado</th><th>Fecha limite</th><th>Institucion</th><th></th></tr></thead>
-          <tbody id="hogar-tramites-tbody"></tbody></table>
+          <table><thead><tr><th>Tipo</th><th>Descripcion</th><th>Responsable</th><th>Estado</th><th>Fecha limite</th><th>Institucion</th></tr></thead>
+          <tbody id="hogar-tramites-tbody"><tr><td colspan="6" class="empty">Sin tramites</td></tr></tbody></table>
         </div></div>
       </div>
     </div>
 
     <!-- FINANZAS -->
     <div class="page" id="page-finanzas">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div style="font-size:20px;font-weight:700">💰 Finanzas</div>
-        <button class="btn-add-row" onclick="openAddModal('gastos')">+ Agregar gasto</button>
-      </div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:14px">💰 Finanzas</div>
       <div class="metric-grid" id="fin-metrics"></div>
       <div id="fin-conciliacion"></div>
       <div class="two-col">
@@ -291,22 +314,19 @@ select.field-input option{background:#1e293b}
       <div class="card">
         <div class="sec">Gastos recientes</div>
         <div class="tbl-wrap">
-          <table><thead><tr><th>Fecha</th><th>Concepto</th><th>Categoria</th><th>Monto</th><th>Forma pago</th><th>Comprobante</th><th></th></tr></thead>
-          <tbody id="fin-tbody"><tr><td colspan="7" class="loading"><span class="spinner"></span>Cargando...</td></tr></tbody></table>
+          <table><thead><tr><th>Fecha</th><th>Concepto</th><th>Categoria</th><th>Monto</th><th>Forma pago</th><th>Comprobante</th></tr></thead>
+          <tbody id="fin-tbody"><tr><td colspan="6" class="loading"><span class="spinner"></span>Cargando...</td></tr></tbody></table>
         </div>
       </div>
     </div>
 
     <!-- COMPRAS -->
     <div class="page" id="page-compras">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div style="font-size:20px;font-weight:700">🛍️ Compras</div>
-        <button class="btn-add-row" onclick="openAddModal('compras')">+ Agregar articulo</button>
-      </div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:14px">🛍️ Compras</div>
       <div class="metric-grid" id="comp-metrics"></div>
       <div class="card"><div class="tbl-wrap">
-        <table><thead><tr><th>Articulo</th><th>Prioridad</th><th>Etapa</th><th>Estado</th><th>Precio Est.</th><th>Precio Real</th><th>Tienda</th><th></th></tr></thead>
-        <tbody id="comp-tbody"><tr><td colspan="8" class="loading"><span class="spinner"></span>Cargando...</td></tr></tbody></table>
+        <table><thead><tr><th>Articulo</th><th>Prioridad</th><th>Etapa</th><th>Estado</th><th>Precio Est.</th><th>Precio Real</th><th>Tienda</th></tr></thead>
+        <tbody id="comp-tbody"><tr><td colspan="7" class="loading"><span class="spinner"></span>Cargando...</td></tr></tbody></table>
       </div></div>
     </div>
 
@@ -349,6 +369,22 @@ select.field-input option{background:#1e293b}
   </div>
 </div>
 
+<script>
+// Expandir / colapsar todo
+function expandAllTrees(){
+  var tareas=DATA.hogar.tareas,subs=DATA.hogar.subtareas;
+  tareas.forEach(function(t,i){
+    var id=t["ID Tarea"]||t["ID_Tarea"]||("t"+i);
+    var misSubs=subs.filter(function(s){return s["ID Tarea Padre"]===id;});
+    if(misSubs.length>0)treeExpanded[id]=true;
+  });
+  renderTareaTreeView();
+}
+function collapseAllTrees(){
+  treeExpanded={};
+  renderTareaTreeView();
+}
+</script>
 <script src="app.js"></script>
 </body>
 </html>
